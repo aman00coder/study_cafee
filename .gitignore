@@ -1,0 +1,71 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm/
+
+# Optional eslint cache
+.eslintcache
+
+# dotenv environment files
+.env
+.env.test
+.env.*.local
+
+# Next.js build output (if using)
+.next/
+
+# Nuxt.js build output
+.nuxt/
+
+# Parcel cache
+.cache/
+
+# VS Code settings
+.vscode/
+
+# Output of 'npm pack'
+*.tgz
+
+# Coverage directory
+coverage/
+
+# Build directory
+dist/
+build/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Mac system files
+.DS_Store
+
+# IDEs
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Local dev tools
+*.local
+
+# Optional lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
