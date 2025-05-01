@@ -13,7 +13,7 @@ cloudinary.v2.config({
 const uploadToCloudinary = async (filePath) => {
     try {
       const result = await cloudinary.v2.uploader.upload(filePath, {
-        folder: "Yellow-page",  // This will create/use the Yellow-page folder
+        folder: "Study-Cafe",  // This will create/use the Yellow-page folder
         use_filename: true,    // Optional: keeps original filename
         unique_filename: false, // Optional: allows duplicates
         overwrite: true        // Optional: overwrites if file exists
