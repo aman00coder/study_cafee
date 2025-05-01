@@ -2,7 +2,7 @@ import Admin from '../../models/user.model.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Banner from '../../models/banner.model.js';
-import cloudinaru from 'cloudinary';
+import cloudinary from 'cloudinary';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 
@@ -95,6 +95,10 @@ routes.createBanner = async (req, res) => {
       return res.status(400).json({ message: 'No images uploaded' });
     }
 
+    const verifyDublicate = await Banner.findOne({ $or: [{ title }, { description }] });
+    if (verifyDublicate) 
+        return res.status(400).json({ message: 'Same title or description named banner already exists' });
+
     // Upload all images to Cloudinary
     const uploadPromises = req.files.map(async (file) => {
       const result = await uploadToCloudinary(file.path);
@@ -104,7 +108,7 @@ routes.createBanner = async (req, res) => {
 
     const uploadedImageUrls = await Promise.all(uploadPromises);
 
-    // If this set is to be active, deactivate others
+    // If this set is to be active, deactive others
     if (isActive === 'true' || isActive === true) {
       await Banner.updateMany({ isActive: true }, { $set: { isActive: false } });
     }
@@ -131,7 +135,7 @@ routes.createBanner = async (req, res) => {
 
 routes.allBanner = async (req, res) => {
     try {
-        const banners = await Banner.find({});
+        const banners = await Banner.find();
         res.status(200).json(banners);
     } catch (error) {
         console.error(error);
@@ -141,7 +145,63 @@ routes.allBanner = async (req, res) => {
 
 routes.handleBannerStatus = async (req, res) => {
     try {
-        
+      const { bannerId } = req.params;
+      const { action } = req.body; // action can be 'active' or 'deactive'
+  
+      if (!bannerId || !['active', 'deactive'].includes(action)) {
+        return res.status(400).json({ message: "Invalid request: Provide bannerId and valid action (active/deactive)" });
+      }
+  
+      const banner = await Banner.findById(bannerId);
+      if (!banner) {
+        return res.status(404).json({ message: "Banner not found" });
+      }
+  
+      if (action === "active") {
+        // Deactive all other banners
+        await Banner.updateMany(
+          { _id: { $ne: bannerId }, isActive: true },
+          { $set: { isActive: false } }
+        );
+  
+        // active the selected banner
+        banner.isActive = true;
+        await banner.save();
+  
+        return res.status(200).json({ message: "Banner actived successfully", banner });
+      }
+  
+      if (action === "deactive") {
+        const activeBanners = await Banner.find({ isActive: true });
+  
+        // Prevent deactivation if it's the only active banner
+        if (activeBanners.length === 1 && activeBanners[0]._id.toString() === bannerId) {
+          return res.status(400).json({
+            message: "At least one banner must remain active. Please active another banner before deactivating this one.",
+          });
+        }
+  
+        banner.isActive = false;
+        await banner.save();
+  
+        return res.status(200).json({ message: "Banner deactived successfully", banner });
+      }
+  
+    } catch (error) {
+      console.error("Error handling banner status:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+
+routes.deleteBanner = async (req, res) => {
+    try {
+        const { bannerId } = req.params;
+        if (!bannerId) return res.status(400).json({ message: "Banner ID is required" });
+
+        const deletedBanner = await Banner.findByIdAndDelete(bannerId);
+        if (!deletedBanner) return res.status(404).json({ message: "Banner not found" });
+
+        res.status(200).json({ message: "Banner deleted successfully", deletedBanner });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
