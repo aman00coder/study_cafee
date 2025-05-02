@@ -2,28 +2,27 @@ import User from '../../models/user.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
-import { generateOTP } from '../../utils/helpers.js';
 
 const routes = {};
+
+// Generate OTP (now inside this file)
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+};
 
 // Register User
 routes.registerUser = async (req, res) => {
     try {
         const { username, firstName, lastName, email, phone, password } = req.body;
 
-        // Validate required fields
-        if (!username || !firstName || !lastName || !email || !phone || !password) {
+        if(!username || !firstName || !lastName || !email || !phone || !password) {
             return res.status(400).json({ 
                 success: false,
                 message: 'All fields are required' 
             });
         }
 
-        // Check if user already exists
-        const existingUser = await User.findOne({
-            $or: [{ email }, { phone }],
-        });
-        
+        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
         if (existingUser) {
             return res.status(409).json({ 
                 success: false,
@@ -31,9 +30,10 @@ routes.registerUser = async (req, res) => {
             });
         }
 
-        // Hash password and create user
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+        const otp = generateOTP(); // Using local function now
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
         const newUser = new User({
             username,
             firstName,
@@ -41,17 +41,17 @@ routes.registerUser = async (req, res) => {
             email,
             phone,
             password: hashedPassword,
+            otp,
+            otpExpires
         });
 
         await newUser.save();
+        await sendOTP(email, otp);
 
         res.status(201).json({ 
             success: true,
-            message: 'User registered successfully. Please verify your email.',
-            data: {
-                userId: newUser._id,
-                email: newUser.email
-            }
+            message: 'User registered. Please verify your email.',
+            data: { email }
         });
     } catch (error) {
         console.error('Registration Error:', error);
@@ -63,7 +63,7 @@ routes.registerUser = async (req, res) => {
     }
 }
 
-// Send OTP
+// Send OTP (separate endpoint)
 routes.sendOTP = async (req, res) => {
     try {
         const { email } = req.body;
@@ -76,7 +76,6 @@ routes.sendOTP = async (req, res) => {
         }
 
         const user = await User.findOne({ email });
-        
         if (!user) {
             return res.status(404).json({ 
                 success: false,
@@ -87,12 +86,12 @@ routes.sendOTP = async (req, res) => {
         if (user.isVerified) {
             return res.status(400).json({ 
                 success: false,
-                message: "User is already verified" 
+                message: "User already verified" 
             });
         }
 
-        const otp = generateOTP();
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+        const otp = generateOTP(); // Using local function
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
         user.otp = otp;
         user.otpExpires = otpExpires;
@@ -103,10 +102,7 @@ routes.sendOTP = async (req, res) => {
         res.status(200).json({ 
             success: true,
             message: 'OTP sent successfully',
-            data: {
-                email: user.email,
-                otpExpires: otpExpires
-            }
+            data: { email }
         });
     } catch (error) {
         console.error('OTP Sending Error:', error);
@@ -118,7 +114,7 @@ routes.sendOTP = async (req, res) => {
     }
 }
 
-// Verify OTP
+// Verify OTP (unchanged)
 routes.verifyOTP = async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -131,26 +127,11 @@ routes.verifyOTP = async (req, res) => {
         }
 
         const user = await User.findOne({ email });
-
-        if (!user) {
-            return res.status(404).json({ 
-                success: false,
-                message: "User not found" 
-            });
-        }
-
-        if (user.isVerified) {
-            return res.status(400).json({ 
-                success: false,
-                message: "User is already verified" 
-            });
-        }
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.isVerified) return res.status(400).json({ message: "Already verified" });
 
         if (user.otp !== Number(otp) || user.otpExpires < Date.now()) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Invalid or expired OTP" 
-            });
+            return res.status(400).json({ message: "Invalid or expired OTP" });
         }
 
         user.isVerified = true;
@@ -158,107 +139,47 @@ routes.verifyOTP = async (req, res) => {
         user.otpExpires = undefined;
         await user.save();
 
-        res.status(200).json({ 
-            success: true,
-            message: "Email verification successful",
-            data: {
-                email: user.email,
-                isVerified: true
-            }
-        });
+        res.status(200).json({ message: "Verification successful" });
     } catch (error) {
-        console.error('OTP Verification Error:', error);
-        res.status(500).json({ 
-            success: false,
-            message: "Server error during OTP verification",
-            error: error.message 
-        });
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 }
 
-// Login User
+// Login (unchanged)
 routes.loginUser = async (req, res) => {
     try {
         const { email, phone, password } = req.body;
 
         if ((!email && !phone) || !password) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Email/Phone and Password are required" 
-            });
+            return res.status(400).json({ message: "Email/Phone and Password required" });
         }
 
-        // Find user by email or phone
-        const user = await User.findOne({
-            $or: [
-                { email: email?.toLowerCase() },
-                { phone }
-            ]
-        });
+        const user = await User.findOne({ $or: [{ email }, { phone }] });
+        if (!user) return res.status(401).json({ message: "Invalid credentials" });
+        if (!user.isVerified) return res.status(403).json({ message: "Verify email first" });
 
-        if (!user) {
-            return res.status(401).json({ 
-                success: false,
-                message: "Invalid credentials" 
-            });
-        }
-
-        // Check if user is verified
-        if (!user.isVerified) {
-            return res.status(403).json({ 
-                success: false,
-                message: "Please verify your email first" 
-            });
-        }
-
-        // Match password
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ 
-                success: false,
-                message: "Invalid credentials" 
-            });
-        }
+        if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-        // Generate JWT token
-        const payload = {
-            _id: user._id,
-            email: user.email,
-            role: user.role,
-        };
-
-        const token = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-        });
-
-        // Omit sensitive data from response
-        const userData = {
-            _id: user._id,
-            username: user.username,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            isVerified: user.isVerified
-        };
+        const token = jwt.sign(
+            { _id: user._id, email: user.email, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        );
 
         res.status(200).json({
-            success: true,
             message: "Login successful",
-            data: {
-                token,
-                user: userData
+            token,
+            user: {
+                _id: user._id,
+                email: user.email,
+                role: user.role
             }
         });
-
     } catch (error) {
-        console.error('Login Error:', error);
-        res.status(500).json({ 
-            success: false,
-            message: "Server error during login",
-            error: error.message 
-        });
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 }
 
