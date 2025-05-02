@@ -95,9 +95,9 @@ routes.createBanner = async (req, res) => {
       return res.status(400).json({ message: 'No images uploaded' });
     }
 
-    const verifyDublicate = await Banner.findOne({ $or: [{ title }, { description }] });
+    const verifyDublicate = await Banner.findOne(title);
     if (verifyDublicate) 
-        return res.status(400).json({ message: 'Same title or description named banner already exists' });
+        return res.status(400).json({ message: 'Same title named banner already exists' });
 
     // Upload all images to Cloudinary
     const uploadPromises = req.files.map(async (file) => {

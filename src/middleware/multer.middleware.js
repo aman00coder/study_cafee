@@ -23,7 +23,7 @@ const upload = multer({
     if (extname && mimetype) {
       return cb(null, true);
     }
-    cb("Error: Images Only!");
+    cb(new Error("Error: Images Only!"));
   }
 });
 
