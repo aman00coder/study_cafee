@@ -1,45 +1,69 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
-        required: true,
+        required: [true, "Username is required"],
         unique: true,
+        trim: true,
+        minlength: [3, "Username must be at least 3 characters"]
     },
     firstName: {
         type: String,
-        required: true,
+        required: [true, "First name is required"],
+        trim: true
     },
     lastName: {
         type: String,
-        required: true,
+        required: [true, "Last name is required"],
+        trim: true
     },
     email: {
         type: String,
-        required: true,
+        required: [true, "Email is required"],
         unique: true,
+        trim: true,
+        lowercase: true,
+        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Please fill a valid email address"]
     },
     phone: {
         type: String,
-        required: true,
+        required: [true, "Phone number is required"],
         unique: true,
+        trim: true
     },
     role: {
         type: String,
         enum: ["admin", "user"],
-        default: "user",
+        default: "user"
     },
     password: {
         type: String,
-        required: true,
+        required: [true, "Password is required"],
+        minlength: [6, "Password must be at least 6 characters"]
     },
-    isVerified:{
-        type:Boolean,
-        default:false
+    isVerified: {
+        type: Boolean,
+        default: false
     },
-    otp: Number,
-    otpExpires: Date,
-},{timestamps: true})
+    otp: {
+        type: Number,
+        select: false // Don't include OTP in query results by default
+    },
+    otpExpires: {
+        type: Date,
+        select: false
+    }
+}, {
+    timestamps: true,
+    toJSON: {
+        transform: function(doc, ret) {
+            delete ret.password; // Never send password in responses
+            delete ret.__v; // Remove version key
+            return ret;
+        }
+    }
+});
 
-const User = mongoose.model("User", userSchema)
-export default User
+const User = mongoose.model("User", userSchema);
+export default User;

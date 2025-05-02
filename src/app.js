@@ -13,8 +13,6 @@ app.use(morgan("dev"))
 
 app.use("/api", allRoutes)
 
-
-
 app.get("/", (req,res)=>{
     res.send("Server Running!")
 })
