@@ -9,7 +9,9 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/loginAdmin", adminController.loginAdmin)
       .post("/add-Banner",authMiddleware(["admin"]), upload.array('image') ,adminController.createBanner)
       .get("/all-Banner",authMiddleware(["admin"]), adminController.allBanner)
-      .patch("/update-Banner/:bannerId",authMiddleware(["admin"]),adminController.handleBannerStatus)
+      .patch("/updateBannerStatus/:bannerId",authMiddleware(["admin"]),adminController.handleBannerStatus)
       .delete("/delete-Banner/:bannerId",authMiddleware(["admin"]),adminController.deleteBanner)
+      .post("/createCategory",authMiddleware(["admin"]),adminController.createCategory)
+      .patch("/updateCategory/:id",authMiddleware(["admin"]),adminController.updateCategory)
 
 export default router;

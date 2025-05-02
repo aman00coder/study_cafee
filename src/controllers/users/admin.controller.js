@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Banner from '../../models/banner.model.js';
 import cloudinary from 'cloudinary';
+import Category from '../../models/category.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 
@@ -208,6 +209,66 @@ routes.deleteBanner = async (req, res) => {
     }
 }
 
+// Create a new category
+routes.createCategory = async (req, res) => {
+    try {
+      const { name, description } = req.body;
+  
+      if (!name) {
+        return res.status(400).json({ message: "Category name is required" });
+      }
+  
+      // Check for duplicate category name
+      const existing = await Category.findOne({ name: name.trim() });
+      if (existing) {
+        return res.status(400).json({ message: "Category with this name already exists" });
+      }
+  
+      const newCategory = new Category({
+        name: name.trim(),
+        description
+      });
+  
+      await newCategory.save();
+  
+      res.status(201).json({ message: "Category created successfully", category: newCategory });
+    } catch (error) {
+      console.error("Error creating category:", error.message);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
+// Update Category (name, description, isActive)
+routes.updateCategory = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, isActive } = req.body;
+  
+      const category = await Category.findById(id);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found." });
+      }
+  
+      if (name) {
+        // Check if new name is already taken by another category
+        const duplicate = await Category.findOne({ name: name.trim(), _id: { $ne: id } });
+        if (duplicate) {
+          return res.status(409).json({ message: "Another category with this name already exists." });
+        }
+        category.name = name.trim();
+      }
+  
+      if (description !== undefined) category.description = description;
+      if (isActive !== undefined) category.isActive = isActive;
+  
+      await category.save();
+  
+      res.status(200).json({ message: "Category updated successfully", category });
+    } catch (error) {
+      console.error("Error updating category:", error.message);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
 
 
-export default routes;
+  export default routes;

@@ -130,7 +130,10 @@ routes.verifyOTP = async (req, res) => {
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.isVerified) return res.status(400).json({ message: "Already verified" });
 
+
         if (user.otp !== Number(otp) || user.otpExpires < Date.now()) {
+        console.log("otp",otp)
+
             return res.status(400).json({ message: "Invalid or expired OTP" });
         }
 

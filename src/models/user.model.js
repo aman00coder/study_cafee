@@ -48,11 +48,9 @@ const userSchema = new mongoose.Schema({
     },
     otp: {
         type: Number,
-        select: false // Don't include OTP in query results by default
     },
     otpExpires: {
         type: Date,
-        select: false
     }
 }, {
     timestamps: true,
