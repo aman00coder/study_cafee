@@ -12,7 +12,7 @@ const routes = {}
 
 routes.registerAdmin = async (req, res) => {
     try {
-        const { username, firstName, lastName, email, phone, password } = req.body;
+        const { firstName, lastName, email, phone, password } = req.body;
 
         // Check if the user already exists
         const existingUser = await Admin.findOne({ email });
@@ -25,7 +25,6 @@ routes.registerAdmin = async (req, res) => {
 
         // Create a new user
         const newUser = new Admin({
-            username,
             firstName,
             lastName,
             email,

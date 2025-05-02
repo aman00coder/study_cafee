@@ -13,8 +13,8 @@ const generateOTP = () => {
 const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
-    const { username, firstName, lastName, email, phone, password } = req.body;
-    if (!username || !firstName || !lastName || !email || !phone || !password) {
+    const { firstName, lastName, email, phone, password } = req.body;
+    if (!firstName || !lastName || !email || !phone || !password) {
         return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
@@ -29,7 +29,7 @@ routes.registerUser = async (req, res) => {
 
     // Save temporarily
     pendingUsers.set(email, {
-        userData: { username, firstName, lastName, email, phone, password: hashedPassword },
+        userData: { firstName, lastName, email, phone, password: hashedPassword },
         otp,
         otpExpires
     });
