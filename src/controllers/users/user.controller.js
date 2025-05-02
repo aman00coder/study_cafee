@@ -10,144 +10,107 @@ const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
 };
 
-// Register User
+const pendingUsers = new Map();
+
 routes.registerUser = async (req, res) => {
-    try {
-        const { username, firstName, lastName, email, phone, password } = req.body;
-
-        if(!username || !firstName || !lastName || !email || !phone || !password) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'All fields are required' 
-            });
-        }
-
-        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-        if (existingUser) {
-            return res.status(409).json({ 
-                success: false,
-                message: "Email or Phone already exists" 
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const otp = generateOTP(); // Using local function now
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-
-        const newUser = new User({
-            username,
-            firstName,
-            lastName,
-            email,
-            phone,
-            password: hashedPassword,
-            otp,
-            otpExpires
-        });
-
-        await newUser.save();
-        await sendOTP(email, otp);
-
-        res.status(201).json({ 
-            success: true,
-            message: 'User registered. Please verify your email.',
-            data: { email }
-        });
-    } catch (error) {
-        console.error('Registration Error:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Server error during registration',
-            error: error.message 
-        });
+    const { username, firstName, lastName, email, phone, password } = req.body;
+    if (!username || !firstName || !lastName || !email || !phone || !password) {
+        return res.status(400).json({ success: false, message: 'All fields are required' });
     }
-}
+
+    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existingUser) {
+        return res.status(409).json({ success: false, message: "Email or Phone already exists" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save temporarily
+    pendingUsers.set(email, {
+        userData: { username, firstName, lastName, email, phone, password: hashedPassword },
+        otp,
+        otpExpires
+    });
+
+    await sendOTP(email, otp);
+
+    return res.status(200).json({ success: true, message: "OTP sent. Please verify to complete registration." });
+};
+
 
 // Send OTP (separate endpoint)
-routes.sendOTP = async (req, res) => {
-    try {
-        const { email } = req.body;
+// routes.sendOTP = async (req, res) => {
+//     try {
+//         const { email } = req.body;
 
-        if (!email) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Email is required' 
-            });
-        }
+//         if (!email) {
+//             return res.status(400).json({ 
+//                 success: false,
+//                 message: 'Email is required' 
+//             });
+//         }
 
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ 
-                success: false,
-                message: "User not found" 
-            });
-        }
+//         const user = await User.findOne({ email });
+//         if (!user) {
+//             return res.status(404).json({ 
+//                 success: false,
+//                 message: "User not found" 
+//             });
+//         }
 
-        if (user.isVerified) {
-            return res.status(400).json({ 
-                success: false,
-                message: "User already verified" 
-            });
-        }
+//         if (user.isVerified) {
+//             return res.status(400).json({ 
+//                 success: false,
+//                 message: "User already verified" 
+//             });
+//         }
 
-        const otp = generateOTP(); // Using local function
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+//         const otp = generateOTP(); // Using local function
+//         const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-        user.otp = otp;
-        user.otpExpires = otpExpires;
-        await user.save();
+//         user.otp = otp;
+//         user.otpExpires = otpExpires;
+//         await user.save();
 
-        await sendOTP(email, otp);
+//         await sendOTP(email, otp);
 
-        res.status(200).json({ 
-            success: true,
-            message: 'OTP sent successfully',
-            data: { email }
-        });
-    } catch (error) {
-        console.error('OTP Sending Error:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Failed to send OTP',
-            error: error.message 
-        });
-    }
-}
+//         res.status(200).json({ 
+//             success: true,
+//             message: 'OTP sent successfully',
+//             data: { email }
+//         });
+//     } catch (error) {
+//         console.error('OTP Sending Error:', error);
+//         res.status(500).json({ 
+//             success: false,
+//             message: 'Failed to send OTP',
+//             error: error.message 
+//         });
+//     }
+// }
 
 // Verify OTP (unchanged)
 routes.verifyOTP = async (req, res) => {
-    try {
-        const { email, otp } = req.body;
+    const { email, otp } = req.body;
 
-        if (!email || !otp) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Email and OTP are required' 
-            });
-        }
+    const pending = pendingUsers.get(email);
+    if (!pending) return res.status(404).json({ message: "No pending registration found." });
 
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: "User not found" });
-        if (user.isVerified) return res.status(400).json({ message: "Already verified" });
-
-
-        if (user.otp !== Number(otp) || user.otpExpires < Date.now()) {
-        console.log("otp",otp)
-
-            return res.status(400).json({ message: "Invalid or expired OTP" });
-        }
-
-        user.isVerified = true;
-        user.otp = undefined;
-        user.otpExpires = undefined;
-        await user.save();
-
-        res.status(200).json({ message: "Verification successful" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error" });
+    if (Number(otp) !== pending.otp || pending.otpExpires < Date.now()) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
     }
-}
+
+    const newUser = new User(pending.userData);
+    newUser.isVerified = true;
+    await newUser.save();
+
+    pendingUsers.delete(email); // Clean up after success
+
+    return res.status(201).json({ message: "User registered and verified successfully" });
+};
+
 
 // Login (unchanged)
 routes.loginUser = async (req, res) => {
