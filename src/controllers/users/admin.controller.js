@@ -1,11 +1,11 @@
-import Admin from '../../models/user.model.js';
+import User from '../../models/user.model.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Banner from '../../models/banner.model.js';
-import cloudinary from 'cloudinary';
 import Category from '../../models/category.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
+import { sendOTP } from '../../services/nodemailer.js';
 
 
 const routes = {}
@@ -15,16 +15,16 @@ routes.registerAdmin = async (req, res) => {
         const { firstName, lastName, email, phone, password } = req.body;
 
         // Check if the user already exists
-        const existingUser = await Admin.findOne({ email });
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'User already exists' });
         }
-
+ 
         // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create a new user
-        const newUser = new Admin({
+        const newUser = new User({
             firstName,
             lastName,
             email,
@@ -52,7 +52,7 @@ routes.loginAdmin = async (req, res) => {
         .json({ message: "Email and Password are required" });
     }
 
-    const existingAdmin = await Admin.findOne({ email });
+    const existingAdmin = await User.findOne({ email });
     if (!existingAdmin)
       return res.status(401).json({ message: "Invalid mail" });
 
@@ -86,6 +86,67 @@ routes.loginAdmin = async (req, res) => {
 } 
 
 
+//Forget-Password
+routes.forgotPassword = async (req, res) => {
+    try {
+      const { email } = req.body;
+      const user = await User.findOne({ email });
+  
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      // Generate OTP (6 digits)
+      const otp = Math.floor(100000 + Math.random() * 900000);
+      const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins expiry
+  
+      // Reuse existing OTP fields
+      user.otp = otp;
+      user.otpExpires = otpExpiry;
+      await user.save();
+  
+      // Send OTP via email (use your existing nodemailer function)
+      await sendOTP(email, otp);
+  
+      res.status(200).json({ 
+        message: "OTP sent to email", 
+        expiresIn: "15 minutes",
+        otp 
+      });
+    } catch (error) {
+        console.log("error",error)
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+
+
+routes.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    // Find user with matching OTP (within expiry time)
+    const user = await User.findOne({
+      email,
+      otp,
+      otpExpires: { $gt: Date.now() } // Check OTP hasn't expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid/expired OTP" });
+    }
+
+    // Update password and clear OTP fields
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+  
 routes.createBanner = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
@@ -269,5 +330,20 @@ routes.updateCategory = async (req, res) => {
     }
   };
 
+routes.deleteCategory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) return res.status(400).json({ message: "Category ID is required" });
 
-  export default routes;
+        const deletedCategory = await Category.findByIdAndDelete(id);
+        if (!deletedCategory) return res.status(404).json({ message: "Category not found" });
+
+        res.status(200).json({ message: "Category deleted successfully", deletedCategory });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+
+export default routes;

@@ -1,19 +1,26 @@
 import User from '../../models/user.model.js';
+import Banner from '../../models/banner.model.js';
+import Category from '../../models/category.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
+import { uploadToCloudinary } from '../../services/cloudinary.js';
+import cloudinary from 'cloudinary';
+import fs from 'fs';
 
 const routes = {};
 
 // Generate OTP (now inside this file)
-const generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
-};
+// const generateOTP = () => {
+//     return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+// };
 
 const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
-    const { firstName, lastName, email, phone, password } = req.body;
+    try {
+        const { firstName, lastName, email, phone, password } = req.body;
+    
     if (!firstName || !lastName || !email || !phone || !password) {
         return res.status(400).json({ success: false, message: 'All fields are required' });
     }
@@ -23,20 +30,40 @@ routes.registerUser = async (req, res) => {
         return res.status(409).json({ success: false, message: "Email or Phone already exists" });
     }
 
+    console.log("File", req.file)
+    let profilePhotoUrl = null;
+    if (req.file) {
+        try {
+            const uploadPhoto = await uploadToCloudinary(req.file.path)
+            profilePhotoUrl = uploadPhoto.secure_url;
+            fs.unlinkSync(req.file.path); 
+    
+            console.log("Profile", profilePhotoUrl)
+        } catch (error) {
+            return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
+        }
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000);
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     const hashedPassword = await bcrypt.hash(password, 10);
 
+
     // Save temporarily
     pendingUsers.set(email, {
-        userData: { firstName, lastName, email, phone, password: hashedPassword },
+        userData: { firstName, lastName, email, phone, password: hashedPassword, profilePhoto: profilePhotoUrl },
         otp,
         otpExpires
     });
 
     await sendOTP(email, otp);
 
-    return res.status(200).json({ success: true, message: "OTP sent. Please verify to complete registration." });
+    return res.status(200).json({ success: true, message: "OTP sent. Please verify to complete registration.",otp });
+    } 
+    catch (error) {
+        console.error('Registration Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to register user', error: error.message });
+    }
 };
 
 
@@ -91,24 +118,31 @@ routes.registerUser = async (req, res) => {
 //     }
 // }
 
+
 // Verify OTP (unchanged)
 routes.verifyOTP = async (req, res) => {
-    const { email, otp } = req.body;
+    try {
+        const { email, otp } = req.body;
 
-    const pending = pendingUsers.get(email);
-    if (!pending) return res.status(404).json({ message: "No pending registration found." });
-
-    if (Number(otp) !== pending.otp || pending.otpExpires < Date.now()) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        const pending = pendingUsers.get(email);
+        if (!pending) return res.status(404).json({ message: "No pending registration found." });
+    
+        if (Number(otp) !== pending.otp || pending.otpExpires < Date.now()) {
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+    
+        const newUser = new User(pending.userData);
+        newUser.isVerified = true;
+        await newUser.save();
+    
+        pendingUsers.delete(email); // Clean up after success
+    
+        return res.status(201).json({ message: "User registered and verified successfully" });
+    } 
+    catch (error) {
+        console.error('OTP Verification Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to verify OTP', error: error.message });
     }
-
-    const newUser = new User(pending.userData);
-    newUser.isVerified = true;
-    await newUser.save();
-
-    pendingUsers.delete(email); // Clean up after success
-
-    return res.status(201).json({ message: "User registered and verified successfully" });
 };
 
 
@@ -146,6 +180,87 @@ routes.loginUser = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server error" });
+    }
+}
+
+routes.updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user._id; // assuming user is authenticated
+    const { firstName, lastName, phone } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Handle profile photo update
+    if (req.file) {
+      const profilePhoto = req.file;
+
+      // ✅ Delete existing photo from Cloudinary if exists
+      if (user.profilePhoto) {
+        const urlParts = user.profilePhoto.split("/");
+        const fileName = urlParts[urlParts.length - 1].split(".")[0];
+        const folder = urlParts[urlParts.length - 2];
+        const publicId = `${folder}/${fileName}`;
+
+        await cloudinary.v2.uploader.destroy(publicId);
+      }
+
+      // ✅ Upload new profile photo
+      const uploaded = await uploadToCloudinary(profilePhoto.path);
+      fs.unlinkSync(profilePhoto.path); // delete local file
+
+      user.profilePhoto = uploaded.secure_url;
+    }
+
+    // ✅ Update other fields
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (phone) user.phone = phone;
+
+    await user.save();
+
+    res.status(200).json({ message: "Profile updated successfully", user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+    
+routes.getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user._id; 
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        return res.status(200).json({ message: "User profile fetched successfully", user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.getBannerSet = async (req, res) => {
+    try {
+        const bannerSet = await Banner.findOne({ isActive: true });
+        if (!bannerSet) return res.status(404).json({ message: "No active banner set found" });
+
+        return res.status(200).json({ message: "Banner set fetched successfully", bannerSet });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.getAllCategory = async (req, res) => {
+    try {
+        const categories = await Category.find({});
+        if (!categories) return res.status(404).json({ message: "No categories found" });
+
+        return res.status(200).json({ message: "Categories fetched successfully", categories });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
     }
 }
 

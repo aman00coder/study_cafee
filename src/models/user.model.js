@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
+    profilePhoto:{
+        type: String,
+    },
     firstName: {
         type: String,
         required: [true, "First name is required"],
