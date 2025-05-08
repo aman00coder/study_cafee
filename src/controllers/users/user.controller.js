@@ -35,7 +35,7 @@ routes.registerUser = async (req, res) => {
     let profilePhotoUrl = null;
     if (req.file) {
         try {
-            const uploadPhoto = await uploadToCloudinary(req.file.path)
+            const uploadPhoto = await uploadToCloudinary(req.file.path, "Profile-photos")
             profilePhotoUrl = uploadPhoto.secure_url;
             fs.unlinkSync(req.file.path); 
     

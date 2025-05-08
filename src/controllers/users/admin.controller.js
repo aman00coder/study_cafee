@@ -161,14 +161,14 @@ routes.createBanner = async (req, res) => {
         return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
       }
 
-    const verifyDublicate = await Banner.findOne(title);
+    const verifyDublicate = await Banner.findOne({title});
     if (verifyDublicate) 
         return res.status(400).json({ message: 'Same title named banner already exists' });
 
     // Upload all images to Cloudinary
     const imageUrls = await Promise.all(
         req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
-          const result = await uploadToCloudinary(file.path);
+          const result = await uploadToCloudinary(file.path, "Banner");
           fs.unlinkSync(file.path); // Delete temp file
           return result.secure_url;
         })
@@ -430,7 +430,7 @@ routes.addPosters = async (req, res) => {
       
         let posterImage = null;
             try {
-                const uploadPoster = await uploadToCloudinary(req.file.path)
+                const uploadPoster = await uploadToCloudinary(req.file.path, "Posters")
                 posterImage = uploadPoster.secure_url;
                 fs.unlinkSync(req.file.path)
             } catch (error) {
