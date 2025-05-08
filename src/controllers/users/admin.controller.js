@@ -322,20 +322,44 @@ routes.handleBannerStatus = async (req, res) => {
     }
   };
 
-routes.deleteBanner = async (req, res) => {
+  routes.deleteBanner = async (req, res) => {
     try {
-        const { bannerId } = req.params;
-        if (!bannerId) return res.status(400).json({ message: "Banner ID is required" });
-
-        const deletedBanner = await Banner.findByIdAndDelete(bannerId);
-        if (!deletedBanner) return res.status(404).json({ message: "Banner not found" });
-
-        res.status(200).json({ message: "Banner deleted successfully", deletedBanner });
+      const { bannerId } = req.params;
+  
+      // 1. Find the banner to be deleted
+      const banner = await Banner.findById(bannerId);
+      if (!banner) {
+        return res.status(404).json({ message: 'Banner not found' });
+      }
+  
+      // 2. Delete all associated images from Cloudinary
+      await Promise.all(
+        banner.image.map(async (imageUrl) => {
+          try {
+            // Extract public ID from the Cloudinary URL
+            const publicId = imageUrl.split('/').slice(-2).join('/').split('.')[0];
+            
+            // Delete from Cloudinary (ensure correct folder structure)
+            await cloudinary.v2.uploader.destroy(publicId);
+          } catch (error) {
+            console.error(`Error deleting image from Cloudinary: ${imageUrl}`, error);
+            // Continue even if one deletion fails
+          }
+        })
+      );
+  
+      // 3. Delete the banner from MongoDB
+      await Banner.findByIdAndDelete(bannerId);
+  
+      res.status(200).json({ 
+        message: 'Banner and all associated images deleted successfully',
+      });
+  
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+      console.error('Error deleting banner:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-}
+  };
 
 // Create a new category
 routes.createCategory = async (req, res) => {
