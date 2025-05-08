@@ -3,9 +3,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Banner from '../../models/banner.model.js';
 import Category from '../../models/category.model.js';
+import Poster from '../../models/posters.model.js';
+import Plan from '../../models/plan.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 import { sendOTP } from '../../services/nodemailer.js';
+import cloudinary from 'cloudinary';
 
 
 const routes = {}
@@ -111,7 +114,6 @@ routes.forgotPassword = async (req, res) => {
       res.status(200).json({ 
         message: "OTP sent to email", 
         expiresIn: "15 minutes",
-        otp 
       });
     } catch (error) {
         console.log("error",error)
@@ -155,19 +157,22 @@ routes.createBanner = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'No images uploaded' });
     }
+    if (req.files.length > 3) {
+        return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
+      }
 
     const verifyDublicate = await Banner.findOne(title);
     if (verifyDublicate) 
         return res.status(400).json({ message: 'Same title named banner already exists' });
 
     // Upload all images to Cloudinary
-    const uploadPromises = req.files.map(async (file) => {
-      const result = await uploadToCloudinary(file.path);
-      fs.unlinkSync(file.path); // Remove local file
-      return result.secure_url;
-    });
-
-    const uploadedImageUrls = await Promise.all(uploadPromises);
+    const imageUrls = await Promise.all(
+        req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
+          const result = await uploadToCloudinary(file.path);
+          fs.unlinkSync(file.path); // Delete temp file
+          return result.secure_url;
+        })
+      );
 
     // If this set is to be active, deactive others
     if (isActive === 'true' || isActive === true) {
@@ -176,7 +181,7 @@ routes.createBanner = async (req, res) => {
 
     // Create and save new banner set
     const newBanner = new Banner({
-      image: uploadedImageUrls,
+      image: imageUrls,
       title,
       description,
       isActive: isActive === 'true' || isActive === true,
@@ -251,6 +256,69 @@ routes.handleBannerStatus = async (req, res) => {
     } catch (error) {
       console.error("Error handling banner status:", error);
       res.status(500).json({ message: "Server error" });
+    }
+  };
+
+
+  //Update Banner (title, description, isActive)
+  routes.updateBanner = async (req, res) => {
+    try {
+      const { bannerId } = req.params;
+      const { title, description, deletedImages } = req.body; // Add deletedImages
+  
+      // 1. Find banner
+      const banner = await Banner.findById(bannerId);
+      if (!banner) return res.status(404).json({ message: 'Banner not found' });
+  
+      // 2. Handle deleted images (if any)
+      if (deletedImages) {
+        const deletedUrls = JSON.parse(deletedImages);
+        
+        // Delete from Cloudinary
+        await Promise.all(
+          deletedUrls.map(async (url) => {
+            const publicId = url.split('/').pop().split('.')[0];
+            await cloudinary.v2.uploader.destroy(`Study-Cafe/${publicId}`);
+          })
+        );
+  
+        // Remove from banner's image array
+        banner.image = banner.image.filter(img => !deletedUrls.includes(img));
+      }
+  
+      // 3. Handle new uploads (if any)
+      if (req.files?.length > 0) {
+        // Check 3-image limit AFTER deletions + new uploads
+        const totalAfterUpdate = banner.image.length + req.files.length;
+        if (totalAfterUpdate > 3) {
+          return res.status(400).json({
+            message: 'Max 3 images allowed. Delete more images or reduce uploads.'
+          });
+        }
+  
+        // Upload new images
+        const newImages = await Promise.all(
+          req.files.map(async (file) => {
+            const result = await uploadToCloudinary(file.path);
+            fs.unlinkSync(file.path);
+            return result.secure_url;
+          })
+        );
+        banner.image.push(...newImages);
+      }
+  
+      // 4. Update other fields
+      if (title) banner.title = title;
+      if (description) banner.description = description;
+  
+      await banner.save();
+      res.status(200).json({ 
+        message: 'Banner updated with 3-image limit enforced',
+        banner 
+      });
+  
+    } catch (error) {
+      res.status(500).json({ message: 'Server error' });
     }
   };
 
@@ -343,6 +411,71 @@ routes.deleteCategory = async (req, res) => {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
+}
+
+routes.addPosters = async (req, res) => {
+    try {
+        const { title, description, category } = req.body;
+        
+        if (!title || !category) {
+            return res.status(400).json({ message: 'Title, description, and category are required' });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ 
+              success: false,
+              message: 'Poster image is required' 
+          });
+      }
+      
+        let posterImage = null;
+            try {
+                const uploadPoster = await uploadToCloudinary(req.file.path)
+                posterImage = uploadPoster.secure_url;
+                fs.unlinkSync(req.file.path)
+            } catch (error) {
+                return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
+            }
+
+        const newPoster = new Poster({
+            image: posterImage,
+            title,
+            description,
+            category
+        });
+
+        await newPoster.save();
+        res.status(201).json({ message: 'Poster created successfully', poster: newPoster });
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+routes.createPlan = async (req, res) => {
+  try {
+    const { name, description, price, duration, features } = req.body;
+
+    if (!name || !price || !duration || !Array.isArray(features) || features.length === 0) {
+      return res.status(400).json({ message: "Missing some fields or features is empty" });
+    }
+
+    const newPlan = new Plan({
+      name,
+      description,
+      price,
+      duration,
+      features,
+    });
+
+    const savedPlan = await newPlan.save();
+    res.status(201).json({ message: "Plan created successfully", plan: savedPlan });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
 }
 
 

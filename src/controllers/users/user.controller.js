@@ -1,6 +1,7 @@
 import User from '../../models/user.model.js';
 import Banner from '../../models/banner.model.js';
 import Category from '../../models/category.model.js';
+import Poster from '../../models/posters.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -58,7 +59,7 @@ routes.registerUser = async (req, res) => {
 
     await sendOTP(email, otp);
 
-    return res.status(200).json({ success: true, message: "OTP sent. Please verify to complete registration.",otp });
+    return res.status(200).json({ success: true, message: "OTP sent. Please verify to complete registration." });
     } 
     catch (error) {
         console.error('Registration Error:', error);
@@ -183,6 +184,58 @@ routes.loginUser = async (req, res) => {
     }
 }
 
+routes.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ message: "Email is required" });
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        const otpExpires = Date.now() + 10 * 60 * 1000;
+
+        user.otp = otp;
+        user.otpExpires = otpExpires;
+        await user.save();
+
+        await sendOTP(user.email, otp); // Reuse your nodemailer function
+
+        return res.status(200).json({ message: "OTP sent to your email." });
+    } catch (error) {
+        console.error("Forgot Password OTP Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+routes.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        if (!email || !otp || !newPassword)
+            return res.status(400).json({ message: "All fields are required" });
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        if (user.otp !== Number(otp) || user.otpExpires < Date.now()) {
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        return res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+        console.error("Reset Password Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+
 routes.updateUserProfile = async (req, res) => {
     try {
         const userId = req.user._id; // assuming user is authenticated
@@ -264,4 +317,67 @@ routes.getAllCategory = async (req, res) => {
     }
 }
 
+routes.postersByCategory = async (req, res) => {
+    try {
+        const { categoryId } = req.params;
+
+        const categoryExists = await Category.findById(categoryId);
+        if (!categoryExists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Category not found'
+            });
+        }
+
+        const posters = await Poster.find({ 
+            category: categoryId,
+            isActive: true
+        }).populate('category', 'name');
+
+        if (posters.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'No posters found for this category',
+                posters: []
+            });
+        }
+
+        res.status(200).json({
+            message: 'Posters retrieved successfully',
+            count: posters.length,
+            posters
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.postersById = async (req, res) => {
+    try {
+        const { posterId } = req.params;
+
+        console.log("Poster ID:", posterId)
+        const poster = await Poster.findById(posterId).populate('category', 'name');
+        if (!poster) return res.status(404).json({ message: "Poster not found" });
+
+        return res.status(200).json({ message: "Poster fetched successfully", poster });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.allPlans = async (req, res) => {
+    try {
+        const plans = await Plan.find({});
+        if (!plans) return res.status(404).json({ message: "No plans found" });
+
+        return res.status(200).json({ message: "Plans fetched successfully", plans });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+    
 export default routes;

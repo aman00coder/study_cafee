@@ -9,9 +9,14 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
     //   .post("/sendOTP", userController.sendOTP)
       .post("/verifyOTP", userController.verifyOTP)
       .post("/loginUser", userController.loginUser)
+      .post("/forget-Password", userController.forgotPassword)
+      .patch("/reset-Password", userController.resetPassword)
       .patch("/updateUser",authMiddleware(["user"]), upload.single("profilePhoto"), userController.updateUserProfile)
       .get("/UserProfile",authMiddleware(["user"]), userController.getUserProfile)
-      .get("/getBanner", authMiddleware(["user"]), userController.getBannerSet)
-      .get("/allCategory", authMiddleware(["user"]), userController.getAllCategory)
+      .get("/getBanner", userController.getBannerSet)
+      .get("/allCategory", userController.getAllCategory)
+      .get("/postersByCategory/:categoryId", userController.postersByCategory)
+      .get("/postersById/:posterId", userController.postersById)
+      .get("/allPlans", userController.allPlans)
 
 export default router;
