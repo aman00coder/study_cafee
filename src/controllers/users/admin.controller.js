@@ -5,6 +5,7 @@ import Banner from '../../models/banner.model.js';
 import Category from '../../models/category.model.js';
 import Poster from '../../models/posters.model.js';
 import Plan from '../../models/plan.model.js';
+import BrandingPoster from '../../models/brandingPosters.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 import { sendOTP } from '../../services/nodemailer.js';
@@ -417,7 +418,30 @@ routes.updateCategory = async (req, res) => {
       console.error("Error updating category:", error.message);
       res.status(500).json({ message: "Server error" });
     }
-  };
+  }; 
+
+routes.categoryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const category = await Category.findById(id);
+        
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: "Category not found" 
+            });
+        }
+
+        res.status(200).json({ 
+            success: true,
+            category 
+        });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
 
 routes.deleteCategory = async (req, res) => {
     try {
@@ -473,6 +497,69 @@ routes.addPosters = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+routes.deletePoster = async (req, res) => {
+  try {
+    const { posterId } = req.params;
+
+    if (!posterId) {
+      return res.status(400).json({ message: "Poster ID is required" });
+    }
+
+    const poster = await Poster.findById(posterId);
+    if (!poster) {
+      return res.status(404).json({ message: "Poster not found" });
+    }
+
+    // Extract public_id from the Cloudinary URL
+    const imageUrl = poster.image;
+    const publicIdMatch = imageUrl.match(/\/([^\/]+)\.(jpg|jpeg|png|webp|gif|bmp)$/i);
+    
+    if (!publicIdMatch || !publicIdMatch[1]) {
+      return res.status(500).json({ message: "Could not extract Cloudinary public_id from image URL" });
+    }
+
+    // Your folder name used during upload
+    const folderName = "Study-Cafe/Posters";
+    const publicId = `${folderName}/${publicIdMatch[1]}`;
+
+    // Delete image from Cloudinary
+    try {
+      await cloudinary.v2.uploader.destroy(publicId);
+    } catch (cloudErr) {
+      console.error("Failed to delete image from Cloudinary:", cloudErr);
+      return res.status(500).json({ message: "Failed to delete image from Cloudinary" });
+    }
+
+    // Delete the poster from MongoDB
+    await Poster.findByIdAndDelete(posterId);
+
+    res.status(200).json({ message: "Poster deleted successfully" });
+
+  } catch (error) {
+    console.error("Error deleting poster:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// routes.postersForBranding = async (req, res) => {
+//   try {
+//     const { title, description, isActive } = req.body;
+
+//     // Check if images are uploaded
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({ message: 'No images uploaded' });
+//     }
+//     if (req.files.length > 3) {
+//         return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
+//       }
+
+
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// }
 
 routes.createPlan = async (req, res) => {
   try {

@@ -16,8 +16,10 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .delete("/delete-Banner/:bannerId", authMiddleware(["admin"]), adminController.deleteBanner)
       .post("/createCategory", authMiddleware(["admin"]), adminController.createCategory)
       .patch("/updateCategory/:id", authMiddleware(["admin"]), adminController.updateCategory)
+      .post("/category/:id", authMiddleware(["admin"]), adminController.categoryById)
       .delete("/deleteCategory/:id", authMiddleware(["admin"]), adminController.deleteCategory)
       .post("/addPoster", authMiddleware(["admin"]), upload.single('image'), adminController.addPosters)
+      .delete("/deletePoster/:posterId", authMiddleware(["admin"]), adminController.deletePoster)
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
 
 export default router;
