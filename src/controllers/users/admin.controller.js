@@ -210,54 +210,51 @@ routes.allBanner = async (req, res) => {
 }
 
 routes.handleBannerStatus = async (req, res) => {
-    try {
+  try {
       const { bannerId } = req.params;
-      const { action } = req.body; // action can be 'active' or 'deactive'
-  
-      if (!bannerId || !['active', 'deactive'].includes(action)) {
-        return res.status(400).json({ message: "Invalid request: Provide bannerId and valid action (active/deactive)" });
+
+      if (!bannerId) {
+          return res.status(400).json({ message: "Invalid request: bannerId is required" });
       }
-  
+
       const banner = await Banner.findById(bannerId);
       if (!banner) {
-        return res.status(404).json({ message: "Banner not found" });
+          return res.status(404).json({ message: "Banner not found" });
       }
-  
-      if (action === "active") {
-        // Deactive all other banners
-        await Banner.updateMany(
-          { _id: { $ne: bannerId }, isActive: true },
-          { $set: { isActive: false } }
-        );
-  
-        // active the selected banner
-        banner.isActive = true;
-        await banner.save();
-  
-        return res.status(200).json({ message: "Banner actived successfully", banner });
+
+      // Check if this is the only active banner
+      const activeBanners = await Banner.find({ isActive: true });
+      const isOnlyActiveBanner = activeBanners.length === 1 && activeBanners[0]._id.toString() === bannerId;
+
+      // Toggle logic
+      if (banner.isActive) {
+          // Trying to deactivate
+          if (isOnlyActiveBanner) {
+              return res.status(400).json({
+                  message: "At least one banner must remain active. Please activate another banner before deactivating this one.",
+              });
+          }
+          banner.isActive = false;
+      } else {
+          // Trying to activate - deactivate all others first
+          await Banner.updateMany(
+              { _id: { $ne: bannerId }, isActive: true },
+              { $set: { isActive: false } }
+          );
+          banner.isActive = true;
       }
-  
-      if (action === "deactive") {
-        const activeBanners = await Banner.find({ isActive: true });
-  
-        // Prevent deactivation if it's the only active banner
-        if (activeBanners.length === 1 && activeBanners[0]._id.toString() === bannerId) {
-          return res.status(400).json({
-            message: "At least one banner must remain active. Please active another banner before deactivating this one.",
-          });
-        }
-  
-        banner.isActive = false;
-        await banner.save();
-  
-        return res.status(200).json({ message: "Banner deactived successfully", banner });
-      }
-  
-    } catch (error) {
+
+      await banner.save();
+      return res.status(200).json({ 
+          message: `Banner ${banner.isActive ? 'activated' : 'deactivated'} successfully`, 
+          banner 
+      });
+
+  } catch (error) {
       console.error("Error handling banner status:", error);
       res.status(500).json({ message: "Server error" });
-    }
-  };
+  }
+};
 
 
   //Update Banner (title, description, isActive)
