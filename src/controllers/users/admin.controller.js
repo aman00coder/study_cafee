@@ -542,24 +542,35 @@ routes.deletePoster = async (req, res) => {
   }
 };
 
-// routes.postersForBranding = async (req, res) => {
-//   try {
-//     const { title, description, isActive } = req.body;
+routes.postersForBranding = async (req, res) => {
+  try {
+    const { title, description, isActive } = req.body;
 
-//     // Check if images are uploaded
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({ message: 'No images uploaded' });
-//     }
-//     if (req.files.length > 3) {
-//         return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
-//       }
+    // Check if images are uploaded
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No images uploaded' });
+    }
+    if (req.files.length > 3) {
+        return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
+      }
 
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// }
+      const verifyDublicate = await BrandingPoster.findOne({title});
+      if (verifyDublicate) 
+          return res.status(400).json({ message: 'Same title named branding already exists' });
+  
+      // Upload all images to Cloudinary
+      const imageUrls = await Promise.all(
+          req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
+            const result = await uploadToCloudinary(file.path, "Banner");
+            fs.unlinkSync(file.path); // Delete temp file
+            return result.secure_url;
+          })
+        );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
 
 routes.createPlan = async (req, res) => {
   try {
