@@ -8,8 +8,9 @@ config();
 const app = express();
 
 app.use(cors({
-    origin: '*', // Allow all origins
-    credentials: true, // Trying to allow credentials
+    origin: '*', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
   }));
   
 app.use(express.json());
