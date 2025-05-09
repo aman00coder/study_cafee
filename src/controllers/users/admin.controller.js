@@ -498,6 +498,19 @@ routes.addPosters = async (req, res) => {
     }
 }
 
+routes.allPosters = async (req, res) => {
+  try {
+    const posters = await Poster.find()
+      .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
+      .populate('category', 'name');    // Optional: include category details if needed
+
+    res.status(200).json(posters);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 routes.deletePoster = async (req, res) => {
   try {
     const { posterId } = req.params;
@@ -546,6 +559,8 @@ routes.postersForBranding = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
 
+    if(!title) return res.status(400).json({ message: 'Title is required' });
+
     // Check if images are uploaded
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'No images uploaded' });
@@ -561,16 +576,37 @@ routes.postersForBranding = async (req, res) => {
       // Upload all images to Cloudinary
       const imageUrls = await Promise.all(
           req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
-            const result = await uploadToCloudinary(file.path, "Banner");
+            const result = await uploadToCloudinary(file.path, "Branding-Posters");
             fs.unlinkSync(file.path); // Delete temp file
             return result.secure_url;
           })
         );
+
+        if (isActive === 'true' || isActive === true) {
+          await BrandingPoster.updateMany({ isActive: true }, { $set: { isActive: false } });
+        }
+    
+        // Create and save new banner set
+        const newBranding = new BrandingPoster({
+          image: imageUrls,
+          title,
+          description,
+          isActive: isActive === 'true' || isActive === true,
+        });
+    
+        await newBranding.save();
+    
+        res.status(201).json({
+          message: 'Branding set created successfully',
+          banner: newBranding,
+        });  
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 }
+
+// routes.
 
 routes.createPlan = async (req, res) => {
   try {

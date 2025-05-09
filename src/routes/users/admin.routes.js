@@ -19,7 +19,9 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .get("/category/:id", authMiddleware(["admin"]), adminController.categoryById)
       .delete("/deleteCategory/:id", authMiddleware(["admin"]), adminController.deleteCategory)
       .post("/addPoster", authMiddleware(["admin"]), upload.single('image'), adminController.addPosters)
+      .get("/allPosters", authMiddleware(["admin"]), adminController.allPosters)
       .delete("/deletePoster/:posterId", authMiddleware(["admin"]), adminController.deletePoster)
+      .post("/brandingPosters", authMiddleware(["admin"]), upload.array('image'), adminController.postersForBranding)
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
 
 export default router;
