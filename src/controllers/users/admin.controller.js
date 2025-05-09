@@ -812,4 +812,47 @@ routes.allPlans = async (req, res) => {
   }
 }
 
+routes.updatePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { description, price, duration, features } = req.body;
+
+    if (!planId) return res.status(400).json({ message: "Plan ID is required" });
+    if (!price || !duration || !Array.isArray(features) || features.length === 0) {
+      return res.status(400).json({ message: "Missing some fields or features is empty" });
+    }
+
+    const updatedPlan = await Plan.findByIdAndUpdate(planId, {
+      description,
+      price,
+      duration,
+      features,
+    }, { new: true });
+
+    if (!updatedPlan) return res.status(404).json({ message: "Plan not found" });
+
+    res.status(200).json({ message: "Plan updated successfully", plan: updatedPlan });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+routes.deletePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+
+    if (!planId) return res.status(400).json({ message: "Plan ID is required" });
+
+    const deletedPlan = await Plan.findByIdAndDelete(planId);
+    if (!deletedPlan) return res.status(404).json({ message: "Plan not found" });
+
+    res.status(200).json({ message: "Plan deleted successfully", deletedPlan });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 export default routes;
