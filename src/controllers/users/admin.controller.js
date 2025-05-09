@@ -331,17 +331,44 @@ routes.handleBannerStatus = async (req, res) => {
       }
   
       // 2. Delete all associated images from Cloudinary
-      await Promise.all(
+      const deletionResults = await Promise.all(
         banner.image.map(async (imageUrl) => {
           try {
-            // Extract public ID from the Cloudinary URL
-            const publicId = imageUrl.split('/').slice(-2).join('/').split('.')[0];
+            // Extract the full public ID from Cloudinary URL
+            const urlParts = imageUrl.split('/');
+            const uploadIndex = urlParts.indexOf('upload') + 1;
             
-            // Delete from Cloudinary (ensure correct folder structure)
-            await cloudinary.v2.uploader.destroy(publicId);
+            if (uploadIndex === 0) {
+              console.error('Invalid Cloudinary URL format:', imageUrl);
+              return { success: false, url: imageUrl, error: 'Invalid URL format' };
+            }
+  
+            // Get everything after 'upload/' which includes version/folders/filename
+            const pathAfterUpload = urlParts.slice(uploadIndex).join('/');
+            
+            // Remove version if present (v123456/)
+            const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, '');
+            
+            // Remove file extension
+            const publicId = pathWithoutVersion.split('.')[0];
+            
+            console.log('Deleting Cloudinary file with publicId:', publicId);
+  
+            // Delete from Cloudinary
+            const result = await cloudinary.v2.uploader.destroy(publicId, {
+              invalidate: true
+            });
+  
+            if (result.result !== 'ok') {
+              console.error('Cloudinary deletion failed:', result);
+              return { success: false, url: imageUrl, error: result.result };
+            }
+  
+            return { success: true, url: imageUrl, publicId };
+  
           } catch (error) {
-            console.error(`Error deleting image from Cloudinary: ${imageUrl}`, error);
-            // Continue even if one deletion fails
+            console.error(`Error deleting image ${imageUrl}:`, error.message);
+            return { success: false, url: imageUrl, error: error.message };
           }
         })
       );
@@ -350,12 +377,15 @@ routes.handleBannerStatus = async (req, res) => {
       await Banner.findByIdAndDelete(bannerId);
   
       res.status(200).json({ 
-        message: 'Banner and all associated images deleted successfully',
+        message: 'Banner deleted successfully',
       });
   
     } catch (error) {
       console.error('Error deleting banner:', error);
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(500).json({ 
+        message: 'Server error during banner deletion',
+        error: error.message 
+      });
     }
   };
 
@@ -606,7 +636,141 @@ routes.postersForBranding = async (req, res) => {
   }
 }
 
-// routes.
+routes.handleBrandingStatus = async (req, res) => {
+  try {
+      const { posterId } = req.params;
+
+      if (!posterId) {
+          return res.status(400).json({ message: "Invalid request: posterId is required" });
+      }
+
+      const poster = await BrandingPoster.findById(posterId);
+      if (!poster) {
+          return res.status(404).json({ message: "Poster not found" });
+      }
+
+      // Check if this is the only active poster
+      const activePosters = await BrandingPoster.find({ isActive: true });
+      const isOnlyActivePoster = activePosters.length === 1 && activePosters[0]._id.toString() === posterId;
+
+      // Toggle logic
+      if (poster.isActive) {
+          // Trying to deactivate
+          if (isOnlyActivePoster) {
+              return res.status(400).json({
+                  message: "At least one branding poster must remain active. Please activate another before deactivating this one.",
+              });
+          }
+          poster.isActive = false;
+      } else {
+          // Trying to activate - deactivate all others first
+          await BrandingPoster.updateMany(
+              { _id: { $ne: posterId }, isActive: true },
+              { $set: { isActive: false } }
+          );
+          poster.isActive = true;
+      }
+
+      await poster.save();
+      return res.status(200).json({ 
+          message: `Branding Poster ${poster.isActive ? 'activated' : 'deactivated'} successfully`, 
+          poster 
+      });
+
+  } catch (error) {
+      console.error("Error handling branding poster status:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+}
+
+routes.allBrandingPosters = async (req, res) => {
+  try {
+    const posters = await BrandingPoster.find()
+      .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
+
+      if(posters.length === 0) 
+        return res.status(404).json({ message: "No branding posters found" });
+
+    res.status(200).json(posters);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+routes.deleteBrandingPoster = async (req, res) => {
+  try {
+    const { posterId } = req.params;
+
+    // 1. Validate input
+    if (!posterId) {
+      return res.status(400).json({ message: "Poster ID is required" });
+    }
+
+    // 2. Find the poster to be deleted
+    const poster = await BrandingPoster.findById(posterId);
+    if (!poster) {
+      return res.status(404).json({ message: "Poster not found" });
+    }
+
+    // 3. Delete all associated images from Cloudinary
+    const deletionResults = await Promise.all(
+      poster.image.map(async (imageUrl) => {
+        try {
+          // Extract the full public ID from Cloudinary URL
+          const urlParts = imageUrl.split('/');
+          const uploadIndex = urlParts.indexOf('upload') + 1;
+          
+          if (uploadIndex === 0) {
+            console.error('Invalid Cloudinary URL format:', imageUrl);
+            return { success: false, url: imageUrl, error: 'Invalid URL format' };
+          }
+
+          // Get everything after 'upload/' which includes version/folders/filename
+          const pathAfterUpload = urlParts.slice(uploadIndex).join('/');
+          
+          // Remove version if present (v123456/)
+          const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, '');
+          
+          // Remove file extension
+          const publicId = pathWithoutVersion.split('.')[0];
+          
+          console.log('Deleting Cloudinary file with publicId:', publicId);
+
+          // Delete from Cloudinary
+          const result = await cloudinary.v2.uploader.destroy(publicId, {
+            invalidate: true
+          });
+
+          if (result.result !== 'ok') {
+            console.error('Cloudinary deletion failed:', result);
+            return { success: false, url: imageUrl, error: result.result };
+          }
+
+          return { success: true, url: imageUrl, publicId };
+
+        } catch (error) {
+          console.error(`Error deleting image ${imageUrl}:`, error.message);
+          return { success: false, url: imageUrl, error: error.message };
+        }
+      })
+    );
+
+    // 4. Delete the poster from MongoDB
+    await BrandingPoster.findByIdAndDelete(posterId);
+
+    res.status(200).json({ 
+      message: 'Branding Poster deleted successfully',
+    });
+
+  } catch (error) {
+    console.error("Error deleting branding poster:", error);
+    res.status(500).json({ 
+      message: "Server error during poster deletion",
+      error: error.message 
+    });
+  }
+};
 
 routes.createPlan = async (req, res) => {
   try {

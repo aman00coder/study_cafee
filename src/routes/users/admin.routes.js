@@ -22,6 +22,9 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .get("/allPosters", authMiddleware(["admin"]), adminController.allPosters)
       .delete("/deletePoster/:posterId", authMiddleware(["admin"]), adminController.deletePoster)
       .post("/brandingPosters", authMiddleware(["admin"]), upload.array('image'), adminController.postersForBranding)
+      .patch("/brandStatus/:posterId", authMiddleware(["admin"]), adminController.handleBrandingStatus)
+      .get("/allBrandingPosters", authMiddleware(["admin"]), adminController.allBrandingPosters)
+      .delete("/deleteBranding/:posterId", authMiddleware(["admin"]), adminController.deleteBrandingPoster)
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
 
 export default router;
