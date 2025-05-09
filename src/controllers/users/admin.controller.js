@@ -797,5 +797,19 @@ routes.createPlan = async (req, res) => {
   }
 }
 
+routes.allPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find()
+      .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
+
+    if(plans.length === 0) 
+        return res.status(404).json({ message: "No plans found" });
+
+    res.status(200).json(plans);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
 
 export default routes;

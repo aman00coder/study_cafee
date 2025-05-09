@@ -26,5 +26,6 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .get("/allBrandingPosters", authMiddleware(["admin"]), adminController.allBrandingPosters)
       .delete("/deleteBranding/:posterId", authMiddleware(["admin"]), adminController.deleteBrandingPoster)
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
+      .get("/allPlan", authMiddleware(["admin"]), adminController.allPlans)
 
 export default router;
