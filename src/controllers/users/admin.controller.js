@@ -812,6 +812,31 @@ routes.allPlans = async (req, res) => {
   }
 }
 
+routes.planById = async (req, res) => {
+  try {
+    const { planId } = req.params;
+      
+      if (!planId) return res.status(400).json({ message: "Plan ID is required" });
+  
+      const plan = await Plan.findById(planId);
+          
+          if (!plan) {
+              return res.status(404).json({ 
+                  success: false,
+                  message: "Plan not found" 
+              });
+          }
+  
+          res.status(200).json({ 
+              success: true,
+              plan 
+          });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
 routes.updatePlan = async (req, res) => {
   try {
     const { planId } = req.params;
