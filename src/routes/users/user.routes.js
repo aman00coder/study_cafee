@@ -12,6 +12,7 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .post("/forget-Password", userController.forgotPassword)
       .patch("/reset-Password", userController.resetPassword)
       .patch("/updateUser",authMiddleware(["user"]), upload.single("profilePhoto"), userController.updateUserProfile)
+      .get("/allDesignationn", userController.allDesignation)
       .get("/UserProfile",authMiddleware(["user"]), userController.getUserProfile)
       .get("/getBanner", userController.getBannerSet)
       .get("/allCategory", userController.getAllCategory)

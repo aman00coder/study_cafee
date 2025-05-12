@@ -2,6 +2,7 @@ import User from '../../models/user.model.js';
 import Banner from '../../models/banner.model.js';
 import Category from '../../models/category.model.js';
 import Poster from '../../models/posters.model.js';
+import Designation from '../../models/designation.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -235,6 +236,18 @@ routes.resetPassword = async (req, res) => {
     }
 };
 
+routes.allDesignation = async (req, res) => {
+    try {
+        const designation = await Designation.find({});
+        if (!designation) return res.status(404).json({ message: "No designations found" });
+
+        return res.status(200).json({ message: "Designations fetched successfully", designation });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
 
 routes.updateUserProfile = async (req, res) => {
     try {
@@ -374,6 +387,39 @@ routes.allPlans = async (req, res) => {
         if (!plans) return res.status(404).json({ message: "No plans found" });
 
         return res.status(200).json({ message: "Plans fetched successfully", plans });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.addTestimonoal = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { subject, rating, description} = req.body;
+
+        if (!subject || !rating || !description) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const testimonial = new Testimonial({
+            createdBy: userId,
+            subject,
+            rating,
+            description,
+        });
+
+        await testimonial.save();
+
+        res.status(201).json({
+            message: "Testimonial submitted successfully",
+            testimonial,
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Internal Server error" });

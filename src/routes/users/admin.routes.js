@@ -2,6 +2,7 @@ import express from "express"
 import authMiddleware from "../../middleware/auth.middleware.js"
 import adminController from "../../controllers/users/admin.controller.js"
 import upload from "../../middleware/multer.middleware.js"
+import couponController from "../../controllers/plans/coupon.controller.js"
 
 const router = express.Router()
 
@@ -9,6 +10,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/loginAdmin", adminController.loginAdmin)
       .post("/forget-Password", adminController.forgotPassword)
       .patch("/reset-Password", adminController.resetPassword)
+      .post("/add-Designation", authMiddleware(["admin"]), adminController.createDesignation)
+      .delete("/delete-Designation", authMiddleware(["admin"]), adminController.deleteDesignation)
       .post("/add-Banner", authMiddleware(["admin"]), upload.array('image') , adminController.createBanner)
       .get("/all-Banner", authMiddleware(["admin"]), adminController.allBanner)
       .patch("/updateBannerStatus/:bannerId",authMiddleware(["admin"]), adminController.handleBannerStatus)
@@ -31,4 +34,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .patch("/updatePlan/:planId", authMiddleware(["admin"]), adminController.updatePlan)
       .delete("/deletePlan/:planId", authMiddleware(["admin"]), adminController.deletePlan)
 
+      //Plans Routes
+      .post("/createCoupon", authMiddleware(["admin"]), couponController.createCoupon)
+      .get("/allCoupons", authMiddleware(["admin"]), couponController.allCoupons)
+      .get("/validateCoupon/:code", authMiddleware(["admin"]), couponController.validateCoupon)
 export default router;

@@ -6,6 +6,7 @@ import Category from '../../models/category.model.js';
 import Poster from '../../models/posters.model.js';
 import Plan from '../../models/plan.model.js';
 import BrandingPoster from '../../models/brandingPosters.model.js';
+import Designation from '../../models/designation.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 import { sendOTP } from '../../services/nodemailer.js';
@@ -150,6 +151,47 @@ routes.resetPassword = async (req, res) => {
   }
 };
   
+routes.createDesignation = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    if(!name)
+        return res.status(400).json({ message: 'Name is required' });
+
+    const verifyDublicate = await Designation.findOne({ name })
+    if (verifyDublicate)
+      return res.status(400).json({ message: 'Same name designation already exists' });
+
+    const newDesignation = new Designation({
+      name,
+      description
+    })
+
+    await newDesignation.save()
+
+    return res.status(201).json({ message: 'Designation created successfully', designation: newDesignation });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+routes.deleteDesignation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) return res.status(400).json({ message: "Designation ID is required" });
+
+    const deletedDesignation = await Designation.findByIdAndDelete(id);
+    if (!deletedDesignation) return res.status(404).json({ message: "Designation not found" });
+
+    return res.status(200).json({ message: "Designation deleted successfully", deletedDesignation });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 routes.createBanner = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
