@@ -11,7 +11,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/forget-Password", adminController.forgotPassword)
       .patch("/reset-Password", adminController.resetPassword)
       .post("/add-Designation", authMiddleware(["admin"]), adminController.createDesignation)
-      .delete("/delete-Designation", authMiddleware(["admin"]), adminController.deleteDesignation)
+      .delete("/delete-Designation/:id", authMiddleware(["admin"]), adminController.deleteDesignation)
       .post("/add-Banner", authMiddleware(["admin"]), upload.array('image') , adminController.createBanner)
       .get("/all-Banner", authMiddleware(["admin"]), adminController.allBanner)
       .patch("/updateBannerStatus/:bannerId",authMiddleware(["admin"]), adminController.handleBannerStatus)
@@ -38,4 +38,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/createCoupon", authMiddleware(["admin"]), couponController.createCoupon)
       .get("/allCoupons", authMiddleware(["admin"]), couponController.allCoupons)
       .get("/validateCoupon/:code", authMiddleware(["admin"]), couponController.validateCoupon)
+
+      //Review
+      .get("/allTestimonial", authMiddleware(["admin"]), adminController.allTestimonial)
 export default router;

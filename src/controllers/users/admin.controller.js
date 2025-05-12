@@ -7,6 +7,7 @@ import Poster from '../../models/posters.model.js';
 import Plan from '../../models/plan.model.js';
 import BrandingPoster from '../../models/brandingPosters.model.js';
 import Designation from '../../models/designation.model.js';
+import Testimonial from '../../models/testimonails.model.js';
 import {uploadToCloudinary} from '../../services/cloudinary.js';
 import fs from 'fs';
 import { sendOTP } from '../../services/nodemailer.js';
@@ -919,6 +920,37 @@ routes.deletePlan = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+}
+
+routes.allTestimonial = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const testimonials = await Testimonial.find()
+      .sort({ rating: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('createdBy', 'profilePhoto firstName lastName designation email');
+
+    const total = await Testimonial.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      count: testimonials.length,
+      total,
+      pages: Math.ceil(total / limit),
+      currentPage: page,
+      data: testimonials
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 }
 

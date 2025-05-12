@@ -12,12 +12,17 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .post("/forget-Password", userController.forgotPassword)
       .patch("/reset-Password", userController.resetPassword)
       .patch("/updateUser",authMiddleware(["user"]), upload.single("profilePhoto"), userController.updateUserProfile)
-      .get("/allDesignationn", userController.allDesignation)
+      .get("/allDesignation", userController.allDesignation)
       .get("/UserProfile",authMiddleware(["user"]), userController.getUserProfile)
       .get("/getBanner", userController.getBannerSet)
       .get("/allCategory", userController.getAllCategory)
       .get("/postersByCategory/:categoryId", userController.postersByCategory)
       .get("/postersById/:posterId", userController.postersById)
       .get("/allPlans", userController.allPlans)
+
+      //Review
+      .post("/addReview", authMiddleware(["user"]), userController.addTestimonoal)
+      .patch("/updateReview/:testimonialId", authMiddleware(["user"]), userController.updateTestimonial)
+      .delete("/deleteReview/:testimonialId", authMiddleware(["user"]), userController.deleteTestimonial)
 
 export default router;

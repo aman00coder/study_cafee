@@ -3,6 +3,7 @@ import Banner from '../../models/banner.model.js';
 import Category from '../../models/category.model.js';
 import Poster from '../../models/posters.model.js';
 import Designation from '../../models/designation.model.js';
+import Testimonial from '../../models/testimonails.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -21,9 +22,9 @@ const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone, password } = req.body;
+        const { firstName, lastName, designation, email, phone, password } = req.body;
     
-    if (!firstName || !lastName || !email || !phone || !password) {
+    if (!firstName || !lastName || !designation || !email || !phone || !password) {
         return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
@@ -53,7 +54,7 @@ routes.registerUser = async (req, res) => {
 
     // Save temporarily
     pendingUsers.set(email, {
-        userData: { firstName, lastName, email, phone, password: hashedPassword, profilePhoto: profilePhotoUrl },
+        userData: { firstName, lastName, designation, email, phone, password: hashedPassword, profilePhoto: profilePhotoUrl },
         otp,
         otpExpires
     });
@@ -294,17 +295,38 @@ routes.updateUserProfile = async (req, res) => {
     
 routes.getUserProfile = async (req, res) => {
     try {
-        const userId = req.user._id; 
+        const userId = req.user._id;
 
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "User not found" });
+        // Fetch user data
+        const user = await User.findById(userId).select('-password'); // Exclude password
+        if (!user) {
+            return res.status(404).json({ 
+                success: false,
+                message: "User not found" 
+            });
+        }
 
-        return res.status(200).json({ message: "User profile fetched successfully", user });
+        // Fetch user's testimonials (sorted by latest first)
+        const testimonials = await Testimonial.find({ createdBy: userId })
+            .sort({ createdAt: -1 }) // Newest first
+            .select('subject rating description createdAt'); // Only include necessary fields
+
+        return res.status(200).json({ 
+            success: true,
+            message: "User profile fetched successfully",
+            data: {
+                user,
+                testimonials: testimonials.length ? testimonials : null, // Return null if no reviews
+            },
+        });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+        res.status(500).json({ 
+            success: false,
+            message: "Internal Server Error" 
+        });
     }
-}
+};
 
 routes.getBannerSet = async (req, res) => {
     try {
@@ -402,6 +424,13 @@ routes.addTestimonoal = async (req, res) => {
             return res.status(400).json({ message: "All fields are required" });
         }
 
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Rating must be between 1 and 5" 
+            });
+        }
+
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -425,5 +454,65 @@ routes.addTestimonoal = async (req, res) => {
         res.status(500).json({ message: "Internal Server error" });
     }
 }
+
+routes.updateTestimonial = async (req, res) => {
+    try {
+        const { testimonialId } = req.params;
+        const { subject, rating, description } = req.body;
+        const userId = req.user._id;
+
+        const testimonial = await Testimonial.findById(testimonialId);
+        if (!testimonial) return res.status(404).json({ message: "Testimonial not found" });
+
+        if (testimonial.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ 
+                success: false,
+                message: "Unauthorized: You can only update your own testimonials" 
+            });
+        }
+
+        if (rating && (rating < 1 || rating > 5)) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Rating must be between 1 and 5" 
+            });
+        }
+
+        if (subject) testimonial.subject = subject;
+        if (rating) testimonial.rating = rating;
+        if (description) testimonial.description = description;
+
+        await testimonial.save();
+
+        return res.status(200).json({ message: "Testimonial updated successfully", testimonial });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.deleteTestimonial = async (req, res) => {
+    try {
+        const { testimonialId } = req.params;
+        const userId = req.user._id;
+
+        if (testimonial.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ 
+                success: false,
+                message: "Unauthorized: You can only delete your own testimonials" 
+            });
+        }
+
+        const testimonalDel = await Testimonial.findByIdAndDelete(testimonialId);
+        if (!testimonalDel) return res.status(404).json({ message: "Testimonial not found" });
+
+        return res.status(200).json({ message: "Testimonial deleted successfully" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
     
 export default routes;

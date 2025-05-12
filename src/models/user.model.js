@@ -14,6 +14,11 @@ const userSchema = new mongoose.Schema({
         required: [true, "Last name is required"],
         trim: true
     },
+    designation:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Designation",
+        required: [true, "Designation is required"]
+    },
     email: {
         type: String,
         required: [true, "Email is required"],
