@@ -1,56 +1,55 @@
-import User from '../../models/user.model.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import Banner from '../../models/banner.model.js';
-import Category from '../../models/category.model.js';
-import Poster from '../../models/posters.model.js';
-import Plan from '../../models/plan.model.js';
-import BrandingPoster from '../../models/brandingPosters.model.js';
-import Designation from '../../models/designation.model.js';
-import Testimonial from '../../models/testimonails.model.js';
-import {uploadToCloudinary} from '../../services/cloudinary.js';
-import fs from 'fs';
-import { sendOTP } from '../../services/nodemailer.js';
-import cloudinary from 'cloudinary';
+import User from "../../models/user.model.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import Banner from "../../models/banner.model.js";
+import Category from "../../models/category.model.js";
+import Poster from "../../models/posters.model.js";
+import Plan from "../../models/plan.model.js";
+import BrandingPoster from "../../models/brandingPosters.model.js";
+import Designation from "../../models/designation.model.js";
+import Testimonial from "../../models/testimonails.model.js";
+import { uploadToCloudinary } from "../../services/cloudinary.js";
+import fs from "fs";
+import { sendOTP } from "../../services/nodemailer.js";
+import cloudinary from "cloudinary";
 
-
-const routes = {}
+const routes = {};
 
 routes.registerAdmin = async (req, res) => {
-    try {
-        const { firstName, lastName, email, phone, password } = req.body;
+  try {
+    const { firstName, lastName, email, phone, password } = req.body;
 
-        // Check if the user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-        }
- 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create a new user
-        const newUser = new User({
-            firstName,
-            lastName,
-            email,
-            phone,
-            password: hashedPassword,
-            role:"admin"
-        });
-
-        await newUser.save();
-
-        res.status(201).json({ message: 'Admin created successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+    // Check if the user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
     }
-}
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user
+    const newUser = new User({
+      firstName,
+      lastName,
+      email,
+      phone,
+      password: hashedPassword,
+      role: "admin",
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ message: "Admin created successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.loginAdmin = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res
@@ -73,57 +72,55 @@ routes.loginAdmin = async (req, res) => {
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-      });
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    });
 
     return res.status(200).json({
-        message: "Login Success", 
-        token,
-        user: {
-          _id: existingAdmin._id,
-          email: existingAdmin.email,
-          role: existingAdmin.role,
-        },
-      });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-} 
-
+      message: "Login Success",
+      token,
+      user: {
+        _id: existingAdmin._id,
+        email: existingAdmin.email,
+        role: existingAdmin.role,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 //Forget-Password
 routes.forgotPassword = async (req, res) => {
-    try {
-      const { email } = req.body;
-      const user = await User.findOne({ email });
-  
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      // Generate OTP (6 digits)
-      const otp = Math.floor(100000 + Math.random() * 900000);
-      const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins expiry
-  
-      // Reuse existing OTP fields
-      user.otp = otp;
-      user.otpExpires = otpExpiry;
-      await user.save();
-  
-      // Send OTP via email (use your existing nodemailer function)
-      await sendOTP(email, otp);
-  
-      res.status(200).json({ 
-        message: "OTP sent to email", 
-        expiresIn: "15 minutes",
-      });
-    } catch (error) {
-        console.log("error",error)
-      res.status(500).json({ message: "Server error" });
-    }
-  };
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
 
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate OTP (6 digits)
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins expiry
+
+    // Reuse existing OTP fields
+    user.otp = otp;
+    user.otpExpires = otpExpiry;
+    await user.save();
+
+    // Send OTP via email (use your existing nodemailer function)
+    await sendOTP(email, otp);
+
+    res.status(200).json({
+      message: "OTP sent to email",
+      expiresIn: "15 minutes",
+    });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.resetPassword = async (req, res) => {
   try {
@@ -133,7 +130,7 @@ routes.resetPassword = async (req, res) => {
     const user = await User.findOne({
       email,
       otp,
-      otpExpires: { $gt: Date.now() } // Check OTP hasn't expired
+      otpExpires: { $gt: Date.now() }, // Check OTP hasn't expired
     });
 
     if (!user) {
@@ -151,47 +148,60 @@ routes.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-  
+
 routes.createDesignation = async (req, res) => {
   try {
     const { name, description } = req.body;
 
-    if(!name)
-        return res.status(400).json({ message: 'Name is required' });
+    if (!name) return res.status(400).json({ message: "Name is required" });
 
-    const verifyDublicate = await Designation.findOne({ name })
+    const verifyDublicate = await Designation.findOne({ name });
     if (verifyDublicate)
-      return res.status(400).json({ message: 'Same name designation already exists' });
+      return res
+        .status(400)
+        .json({ message: "Same name designation already exists" });
 
     const newDesignation = new Designation({
       name,
-      description
-    })
+      description,
+    });
 
-    await newDesignation.save()
+    await newDesignation.save();
 
-    return res.status(201).json({ message: 'Designation created successfully', designation: newDesignation });
+    return res
+      .status(201)
+      .json({
+        message: "Designation created successfully",
+        designation: newDesignation,
+      });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.deleteDesignation = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) return res.status(400).json({ message: "Designation ID is required" });
+    if (!id)
+      return res.status(400).json({ message: "Designation ID is required" });
 
     const deletedDesignation = await Designation.findByIdAndDelete(id);
-    if (!deletedDesignation) return res.status(404).json({ message: "Designation not found" });
+    if (!deletedDesignation)
+      return res.status(404).json({ message: "Designation not found" });
 
-    return res.status(200).json({ message: "Designation deleted successfully", deletedDesignation });
+    return res
+      .status(200)
+      .json({
+        message: "Designation deleted successfully",
+        deletedDesignation,
+      });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.createBanner = async (req, res) => {
   try {
@@ -199,28 +209,36 @@ routes.createBanner = async (req, res) => {
 
     // Check if images are uploaded
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'No images uploaded' });
+      return res.status(400).json({ message: "No images uploaded" });
     }
     if (req.files.length > 3) {
-        return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
-      }
+      return res
+        .status(400)
+        .json({ message: "Maximum 3 images allowed per banner set" });
+    }
 
-    const verifyDublicate = await Banner.findOne({title});
-    if (verifyDublicate) 
-        return res.status(400).json({ message: 'Same title named banner already exists' });
+    const verifyDublicate = await Banner.findOne({ title });
+    if (verifyDublicate)
+      return res
+        .status(400)
+        .json({ message: "Same title named banner already exists" });
 
     // Upload all images to Cloudinary
     const imageUrls = await Promise.all(
-        req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
-          const result = await uploadToCloudinary(file.path, "Banner");
-          fs.unlinkSync(file.path); // Delete temp file
-          return result.secure_url;
-        })
-      );
+      req.files.slice(0, 3).map(async (file) => {
+        // Ensures only 3 even if frontend sends more
+        const result = await uploadToCloudinary(file.path, "Banner");
+        fs.unlinkSync(file.path); // Delete temp file
+        return result.secure_url;
+      })
+    );
 
     // If this set is to be active, deactive others
-    if (isActive === 'true' || isActive === true) {
-      await Banner.updateMany({ isActive: true }, { $set: { isActive: false } });
+    if (isActive === "true" || isActive === true) {
+      await Banner.updateMany(
+        { isActive: true },
+        { $set: { isActive: false } }
+      );
     }
 
     // Create and save new banner set
@@ -228,359 +246,421 @@ routes.createBanner = async (req, res) => {
       image: imageUrls,
       title,
       description,
-      isActive: isActive === 'true' || isActive === true,
+      isActive: isActive === "true" || isActive === true,
     });
 
     await newBanner.save();
 
     res.status(201).json({
-      message: 'Banner set created successfully',
+      message: "Banner set created successfully",
       banner: newBanner,
     });
   } catch (error) {
-    console.error('Error creating banner:',  error.message);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error creating banner:", error.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 routes.allBanner = async (req, res) => {
-    try {
-        const banners = await Banner.find();
-        res.status(200).json(banners);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-}
-
-routes.handleBannerStatus = async (req, res) => {
   try {
-      const { bannerId } = req.params;
-
-      if (!bannerId) {
-          return res.status(400).json({ message: "Invalid request: bannerId is required" });
-      }
-
-      const banner = await Banner.findById(bannerId);
-      if (!banner) {
-          return res.status(404).json({ message: "Banner not found" });
-      }
-
-      // Check if this is the only active banner
-      const activeBanners = await Banner.find({ isActive: true });
-      const isOnlyActiveBanner = activeBanners.length === 1 && activeBanners[0]._id.toString() === bannerId;
-
-      // Toggle logic
-      if (banner.isActive) {
-          // Trying to deactivate
-          if (isOnlyActiveBanner) {
-              return res.status(400).json({
-                  message: "At least one banner must remain active. Please activate another banner before deactivating this one.",
-              });
-          }
-          banner.isActive = false;
-      } else {
-          // Trying to activate - deactivate all others first
-          await Banner.updateMany(
-              { _id: { $ne: bannerId }, isActive: true },
-              { $set: { isActive: false } }
-          );
-          banner.isActive = true;
-      }
-
-      await banner.save();
-      return res.status(200).json({ 
-          message: `Banner ${banner.isActive ? 'activated' : 'deactivated'} successfully`, 
-          banner 
-      });
-
+    const banners = await Banner.find();
+    res.status(200).json(banners);
   } catch (error) {
-      console.error("Error handling banner status:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
+routes.handleBannerStatus = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
 
-  //Update Banner (title, description, isActive)
-  routes.updateBanner = async (req, res) => {
-    try {
-      const { bannerId } = req.params;
-      const { title, description, deletedImages } = req.body; // Add deletedImages
-  
-      // 1. Find banner
-      const banner = await Banner.findById(bannerId);
-      if (!banner) return res.status(404).json({ message: 'Banner not found' });
-  
-      // 2. Handle deleted images (if any)
-      if (deletedImages) {
-        const deletedUrls = JSON.parse(deletedImages);
-        
-        // Delete from Cloudinary
-        await Promise.all(
-          deletedUrls.map(async (url) => {
-            const publicId = url.split('/').pop().split('.')[0];
-            await cloudinary.v2.uploader.destroy(`Study-Cafe/${publicId}`);
-          })
-        );
-  
-        // Remove from banner's image array
-        banner.image = banner.image.filter(img => !deletedUrls.includes(img));
-      }
-  
-      // 3. Handle new uploads (if any)
-      if (req.files?.length > 0) {
-        // Check 3-image limit AFTER deletions + new uploads
-        const totalAfterUpdate = banner.image.length + req.files.length;
-        if (totalAfterUpdate > 3) {
-          return res.status(400).json({
-            message: 'Max 3 images allowed. Delete more images or reduce uploads.'
-          });
-        }
-  
-        // Upload new images
-        const newImages = await Promise.all(
-          req.files.map(async (file) => {
-            const result = await uploadToCloudinary(file.path);
-            fs.unlinkSync(file.path);
-            return result.secure_url;
-          })
-        );
-        banner.image.push(...newImages);
-      }
-  
-      // 4. Update other fields
-      if (title) banner.title = title;
-      if (description) banner.description = description;
-  
-      await banner.save();
-      res.status(200).json({ 
-        message: 'Banner updated with 3-image limit enforced',
-        banner 
-      });
-  
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+    if (!bannerId) {
+      return res
+        .status(400)
+        .json({ message: "Invalid request: bannerId is required" });
     }
-  };
 
-  routes.deleteBanner = async (req, res) => {
-    try {
-      const { bannerId } = req.params;
-  
-      // 1. Find the banner to be deleted
-      const banner = await Banner.findById(bannerId);
-      if (!banner) {
-        return res.status(404).json({ message: 'Banner not found' });
+    const banner = await Banner.findById(bannerId);
+    if (!banner) {
+      return res.status(404).json({ message: "Banner not found" });
+    }
+
+    // Check if this is the only active banner
+    const activeBanners = await Banner.find({ isActive: true });
+    const isOnlyActiveBanner =
+      activeBanners.length === 1 &&
+      activeBanners[0]._id.toString() === bannerId;
+
+    // Toggle logic
+    if (banner.isActive) {
+      // Trying to deactivate
+      if (isOnlyActiveBanner) {
+        return res.status(400).json({
+          message:
+            "At least one banner must remain active. Please activate another banner before deactivating this one.",
+        });
       }
-  
-      // 2. Delete all associated images from Cloudinary
-      const deletionResults = await Promise.all(
-        banner.image.map(async (imageUrl) => {
-          try {
-            // Extract the full public ID from Cloudinary URL
-            const urlParts = imageUrl.split('/');
-            const uploadIndex = urlParts.indexOf('upload') + 1;
-            
-            if (uploadIndex === 0) {
-              console.error('Invalid Cloudinary URL format:', imageUrl);
-              return { success: false, url: imageUrl, error: 'Invalid URL format' };
-            }
-  
-            // Get everything after 'upload/' which includes version/folders/filename
-            const pathAfterUpload = urlParts.slice(uploadIndex).join('/');
-            
-            // Remove version if present (v123456/)
-            const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, '');
-            
-            // Remove file extension
-            const publicId = pathWithoutVersion.split('.')[0];
-            
-            console.log('Deleting Cloudinary file with publicId:', publicId);
-  
-            // Delete from Cloudinary
-            const result = await cloudinary.v2.uploader.destroy(publicId, {
-              invalidate: true
-            });
-  
-            if (result.result !== 'ok') {
-              console.error('Cloudinary deletion failed:', result);
-              return { success: false, url: imageUrl, error: result.result };
-            }
-  
-            return { success: true, url: imageUrl, publicId };
-  
-          } catch (error) {
-            console.error(`Error deleting image ${imageUrl}:`, error.message);
-            return { success: false, url: imageUrl, error: error.message };
-          }
+      banner.isActive = false;
+    } else {
+      // Trying to activate - deactivate all others first
+      await Banner.updateMany(
+        { _id: { $ne: bannerId }, isActive: true },
+        { $set: { isActive: false } }
+      );
+      banner.isActive = true;
+    }
+
+    await banner.save();
+    return res.status(200).json({
+      message: `Banner ${
+        banner.isActive ? "activated" : "deactivated"
+      } successfully`,
+      banner,
+    });
+  } catch (error) {
+    console.error("Error handling banner status:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+//Update Banner (title, description, isActive)
+routes.updateBanner = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
+    const { title, description, deletedImages } = req.body; // Add deletedImages
+
+    // 1. Find banner
+    const banner = await Banner.findById(bannerId);
+    if (!banner) return res.status(404).json({ message: "Banner not found" });
+
+    // 2. Handle deleted images (if any)
+    if (deletedImages) {
+      const deletedUrls = JSON.parse(deletedImages);
+
+      // Delete from Cloudinary
+      await Promise.all(
+        deletedUrls.map(async (url) => {
+          const publicId = url.split("/").pop().split(".")[0];
+          await cloudinary.v2.uploader.destroy(`Study-Cafe/${publicId}`);
         })
       );
-  
-      // 3. Delete the banner from MongoDB
-      await Banner.findByIdAndDelete(bannerId);
-  
-      res.status(200).json({ 
-        message: 'Banner deleted successfully',
-      });
-  
-    } catch (error) {
-      console.error('Error deleting banner:', error);
-      res.status(500).json({ 
-        message: 'Server error during banner deletion',
-        error: error.message 
-      });
+
+      // Remove from banner's image array
+      banner.image = banner.image.filter((img) => !deletedUrls.includes(img));
     }
-  };
+
+    // 3. Handle new uploads (if any)
+    if (req.files?.length > 0) {
+      // Check 3-image limit AFTER deletions + new uploads
+      const totalAfterUpdate = banner.image.length + req.files.length;
+      if (totalAfterUpdate > 3) {
+        return res.status(400).json({
+          message:
+            "Max 3 images allowed. Delete more images or reduce uploads.",
+        });
+      }
+
+      // Upload new images
+      const newImages = await Promise.all(
+        req.files.map(async (file) => {
+          const result = await uploadToCloudinary(file.path);
+          fs.unlinkSync(file.path);
+          return result.secure_url;
+        })
+      );
+      banner.image.push(...newImages);
+    }
+
+    // 4. Update other fields
+    if (title) banner.title = title;
+    if (description) banner.description = description;
+
+    await banner.save();
+    res.status(200).json({
+      message: "Banner updated with 3-image limit enforced",
+      banner,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+routes.deleteBanner = async (req, res) => {
+  try {
+    const { bannerId } = req.params;
+
+    // 1. Find the banner to be deleted
+    const banner = await Banner.findById(bannerId);
+    if (!banner) {
+      return res.status(404).json({ message: "Banner not found" });
+    }
+
+    // 2. Delete all associated images from Cloudinary
+    const deletionResults = await Promise.all(
+      banner.image.map(async (imageUrl) => {
+        try {
+          // Extract the full public ID from Cloudinary URL
+          const urlParts = imageUrl.split("/");
+          const uploadIndex = urlParts.indexOf("upload") + 1;
+
+          if (uploadIndex === 0) {
+            console.error("Invalid Cloudinary URL format:", imageUrl);
+            return {
+              success: false,
+              url: imageUrl,
+              error: "Invalid URL format",
+            };
+          }
+
+          // Get everything after 'upload/' which includes version/folders/filename
+          const pathAfterUpload = urlParts.slice(uploadIndex).join("/");
+
+          // Remove version if present (v123456/)
+          const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, "");
+
+          // Remove file extension
+          const publicId = pathWithoutVersion.split(".")[0];
+
+          console.log("Deleting Cloudinary file with publicId:", publicId);
+
+          // Delete from Cloudinary
+          const result = await cloudinary.v2.uploader.destroy(publicId, {
+            invalidate: true,
+          });
+
+          if (result.result !== "ok") {
+            console.error("Cloudinary deletion failed:", result);
+            return { success: false, url: imageUrl, error: result.result };
+          }
+
+          return { success: true, url: imageUrl, publicId };
+        } catch (error) {
+          console.error(`Error deleting image ${imageUrl}:`, error.message);
+          return { success: false, url: imageUrl, error: error.message };
+        }
+      })
+    );
+
+    // 3. Delete the banner from MongoDB
+    await Banner.findByIdAndDelete(bannerId);
+
+    res.status(200).json({
+      message: "Banner deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting banner:", error);
+    res.status(500).json({
+      message: "Server error during banner deletion",
+      error: error.message,
+    });
+  }
+};
 
 // Create a new category
 routes.createCategory = async (req, res) => {
-    try {
-      const { name, description } = req.body;
-  
-      if (!name) {
-        return res.status(400).json({ message: "Category name is required" });
-      }
-  
-      // Check for duplicate category name
-      const existing = await Category.findOne({ name: name.trim() });
-      if (existing) {
-        return res.status(400).json({ message: "Category with this name already exists" });
-      }
-  
-      const newCategory = new Category({
-        name: name.trim(),
-        description
-      });
-  
-      await newCategory.save();
-  
-      res.status(201).json({ message: "Category created successfully", category: newCategory });
-    } catch (error) {
-      console.error("Error creating category:", error.message);
-      res.status(500).json({ message: "Server error" });
+  try {
+    const { name, description, parentCategory } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Category name is required" });
     }
-  };
-  
+
+    // Check for duplicate category name
+    const existing = await Category.findOne({ name: name.trim() });
+    if (existing) {
+      return res
+        .status(400)
+        .json({ message: "Category with this name already exists" });
+    }
+
+    let parent = null;
+    if (parentCategory) {
+      parent = await Category.findById(parentCategory);
+      if (!parent) {
+        return res.status(400).json({ message: "Invalid parent category" });
+      }
+    }
+
+    const newCategory = new Category({
+      name: name.trim(),
+      description,
+      parentCategory: parentCategory || null,
+    });
+
+    await newCategory.save();
+
+    res
+      .status(201)
+      .json({
+        message: "Category created successfully",
+        category: newCategory,
+      });
+  } catch (error) {
+    console.error("Error creating category:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // Update Category (name, description, isActive)
 routes.updateCategory = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, description, isActive } = req.body;
-  
-      const category = await Category.findById(id);
-      if (!category) {
-        return res.status(404).json({ message: "Category not found." });
-      }
-  
-      if (name) {
-        // Check if new name is already taken by another category
-        const duplicate = await Category.findOne({ name: name.trim(), _id: { $ne: id } });
-        if (duplicate) {
-          return res.status(409).json({ message: "Another category with this name already exists." });
-        }
-        category.name = name.trim();
-      }
-  
-      if (description !== undefined) category.description = description;
-      if (isActive !== undefined) category.isActive = isActive;
-  
-      await category.save();
-  
-      res.status(200).json({ message: "Category updated successfully", category });
-    } catch (error) {
-      console.error("Error updating category:", error.message);
-      res.status(500).json({ message: "Server error" });
+  try {
+    const { id } = req.params;
+    const { name, description, isActive, parentCategory } = req.body;
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found." });
     }
-  }; 
+
+    if (name) {
+      // Check if new name is already taken by another category
+      const duplicate = await Category.findOne({
+        name: name.trim(),
+        _id: { $ne: id },
+      });
+      if (duplicate) {
+        return res
+          .status(409)
+          .json({ message: "Another category with this name already exists." });
+      }
+      category.name = name.trim();
+    }
+
+    if (description !== undefined) category.description = description;
+    if (isActive !== undefined) category.isActive = isActive;
+
+    if (parentCategory !== undefined) {
+      if (parentCategory) {
+        const parent = await Category.findById(parentCategory);
+        if (!parent) {
+          return res.status(400).json({ message: "Invalid parent category" });
+        }
+        if (parent._id.equals(id)) {
+          return res
+            .status(400)
+            .json({ message: "Category cannot be its own parent" });
+        }
+        category.parentCategory = parentCategory;
+      } else {
+        category.parentCategory = null;
+      }
+    }
+
+    await category.save();
+
+    res
+      .status(200)
+      .json({ message: "Category updated successfully", category });
+  } catch (error) {
+    console.error("Error updating category:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.categoryById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const category = await Category.findById(id);
-        
-        if (!category) {
-            return res.status(404).json({ 
-                success: false,
-                message: "Category not found" 
-            });
-        }
+    const category = await Category.findById(id).populate("parentCategory");
+    if (!category) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
+    }
 
-        res.status(200).json({ 
-            success: true,
-            category 
-        });
+    const subcategories = await Category.find({ parentCategory: id });
+
+    res.status(200).json({
+      success: true,
+      category,
+      subcategories,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.deleteCategory = async (req, res) => {
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ message: "Category ID is required" });
+  try {
+    const { id } = req.params;
+    if (!id)
+      return res.status(400).json({ message: "Category ID is required" });
 
-        const deletedCategory = await Category.findByIdAndDelete(id);
-        if (!deletedCategory) return res.status(404).json({ message: "Category not found" });
+    const deletedCategory = await Category.findByIdAndDelete(id);
+    if (!deletedCategory)
+      return res.status(404).json({ message: "Category not found" });
 
-        res.status(200).json({ message: "Category deleted successfully", deletedCategory });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-}
+    res
+      .status(200)
+      .json({ message: "Category deleted successfully", deletedCategory });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.addPosters = async (req, res) => {
-    try {
-        const { title, description, category } = req.body;
-        
-        if (!title || !category) {
-            return res.status(400).json({ message: 'Title, description, and category are required' });
-        }
+  try {
+    const { title, description, category } = req.body;
 
-        if (!req.file) {
-          return res.status(400).json({ 
-              success: false,
-              message: 'Poster image is required' 
-          });
-      }
-      
-        let posterImage = null;
-            try {
-                const uploadPoster = await uploadToCloudinary(req.file.path, "Posters")
-                posterImage = uploadPoster.secure_url;
-                fs.unlinkSync(req.file.path)
-            } catch (error) {
-                return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
-            }
-
-        const newPoster = new Poster({
-            image: posterImage,
-            title,
-            description,
-            category
-        });
-
-        await newPoster.save();
-        res.status(201).json({ message: 'Poster created successfully', poster: newPoster });
-        
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+    if (!title || !category) {
+      return res
+        .status(400)
+        .json({ message: "Title, description, and category are required" });
     }
-}
+
+    const existingCategory = await Category.findById(category);
+    if (!existingCategory) {
+      return res.status(404).json({ message: "Invalid category ID" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Poster image is required",
+      });
+    }
+
+    let posterImage = null;
+    try {
+      const uploadPoster = await uploadToCloudinary(req.file.path, "Posters");
+      posterImage = uploadPoster.secure_url;
+      fs.unlinkSync(req.file.path);
+    } catch (error) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to upload profile photo" });
+    }
+
+    const newPoster = new Poster({
+      image: posterImage,
+      title,
+      description,
+      category,
+    });
+
+    await newPoster.save();
+    res
+      .status(201)
+      .json({ message: "Poster created successfully", poster: newPoster });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.allPosters = async (req, res) => {
   try {
     const posters = await Poster.find()
       .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
-      .populate('category', 'name');    // Optional: include category details if needed
+      .populate("category", "name"); // Optional: include category details if needed
 
     res.status(200).json(posters);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -599,10 +679,16 @@ routes.deletePoster = async (req, res) => {
 
     // Extract public_id from the Cloudinary URL
     const imageUrl = poster.image;
-    const publicIdMatch = imageUrl.match(/\/([^\/]+)\.(jpg|jpeg|png|webp|gif|bmp)$/i);
-    
+    const publicIdMatch = imageUrl.match(
+      /\/([^\/]+)\.(jpg|jpeg|png|webp|gif|bmp)$/i
+    );
+
     if (!publicIdMatch || !publicIdMatch[1]) {
-      return res.status(500).json({ message: "Could not extract Cloudinary public_id from image URL" });
+      return res
+        .status(500)
+        .json({
+          message: "Could not extract Cloudinary public_id from image URL",
+        });
     }
 
     // Your folder name used during upload
@@ -614,132 +700,147 @@ routes.deletePoster = async (req, res) => {
       await cloudinary.v2.uploader.destroy(publicId);
     } catch (cloudErr) {
       console.error("Failed to delete image from Cloudinary:", cloudErr);
-      return res.status(500).json({ message: "Failed to delete image from Cloudinary" });
+      return res
+        .status(500)
+        .json({ message: "Failed to delete image from Cloudinary" });
     }
 
     // Delete the poster from MongoDB
     await Poster.findByIdAndDelete(posterId);
 
     res.status(200).json({ message: "Poster deleted successfully" });
-
   } catch (error) {
     console.error("Error deleting poster:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+//Branding Posters
 routes.postersForBranding = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
 
-    if(!title) return res.status(400).json({ message: 'Title is required' });
+    if (!title) return res.status(400).json({ message: "Title is required" });
 
     // Check if images are uploaded
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'No images uploaded' });
+      return res.status(400).json({ message: "No images uploaded" });
     }
     if (req.files.length > 3) {
-        return res.status(400).json({ message: 'Maximum 3 images allowed per banner set' });
-      }
+      return res
+        .status(400)
+        .json({ message: "Maximum 3 images allowed per banner set" });
+    }
 
-      const verifyDublicate = await BrandingPoster.findOne({title});
-      if (verifyDublicate) 
-          return res.status(400).json({ message: 'Same title named branding already exists' });
-  
-      // Upload all images to Cloudinary
-      const imageUrls = await Promise.all(
-          req.files.slice(0, 3).map(async (file) => { // Ensures only 3 even if frontend sends more
-            const result = await uploadToCloudinary(file.path, "Branding-Posters");
-            fs.unlinkSync(file.path); // Delete temp file
-            return result.secure_url;
-          })
-        );
+    const verifyDublicate = await BrandingPoster.findOne({ title });
+    if (verifyDublicate)
+      return res
+        .status(400)
+        .json({ message: "Same title named branding already exists" });
 
-        if (isActive === 'true' || isActive === true) {
-          await BrandingPoster.updateMany({ isActive: true }, { $set: { isActive: false } });
-        }
-    
-        // Create and save new banner set
-        const newBranding = new BrandingPoster({
-          image: imageUrls,
-          title,
-          description,
-          isActive: isActive === 'true' || isActive === true,
-        });
-    
-        await newBranding.save();
-    
-        res.status(201).json({
-          message: 'Branding set created successfully',
-          banner: newBranding,
-        });  
+    // Upload all images to Cloudinary
+    const imageUrls = await Promise.all(
+      req.files.slice(0, 3).map(async (file) => {
+        // Ensures only 3 even if frontend sends more
+        const result = await uploadToCloudinary(file.path, "Branding-Posters");
+        fs.unlinkSync(file.path); // Delete temp file
+        return result.secure_url;
+      })
+    );
+
+    if (isActive === "true" || isActive === true) {
+      await BrandingPoster.updateMany(
+        { isActive: true },
+        { $set: { isActive: false } }
+      );
+    }
+
+    // Create and save new banner set
+    const newBranding = new BrandingPoster({
+      image: imageUrls,
+      title,
+      description,
+      isActive: isActive === "true" || isActive === true,
+    });
+
+    await newBranding.save();
+
+    res.status(201).json({
+      message: "Branding set created successfully",
+      banner: newBranding,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.handleBrandingStatus = async (req, res) => {
   try {
-      const { posterId } = req.params;
+    const { posterId } = req.params;
 
-      if (!posterId) {
-          return res.status(400).json({ message: "Invalid request: posterId is required" });
+    if (!posterId) {
+      return res
+        .status(400)
+        .json({ message: "Invalid request: posterId is required" });
+    }
+
+    const poster = await BrandingPoster.findById(posterId);
+    if (!poster) {
+      return res.status(404).json({ message: "Poster not found" });
+    }
+
+    // Check if this is the only active poster
+    const activePosters = await BrandingPoster.find({ isActive: true });
+    const isOnlyActivePoster =
+      activePosters.length === 1 &&
+      activePosters[0]._id.toString() === posterId;
+
+    // Toggle logic
+    if (poster.isActive) {
+      // Trying to deactivate
+      if (isOnlyActivePoster) {
+        return res.status(400).json({
+          message:
+            "At least one branding poster must remain active. Please activate another before deactivating this one.",
+        });
       }
+      poster.isActive = false;
+    } else {
+      // Trying to activate - deactivate all others first
+      await BrandingPoster.updateMany(
+        { _id: { $ne: posterId }, isActive: true },
+        { $set: { isActive: false } }
+      );
+      poster.isActive = true;
+    }
 
-      const poster = await BrandingPoster.findById(posterId);
-      if (!poster) {
-          return res.status(404).json({ message: "Poster not found" });
-      }
-
-      // Check if this is the only active poster
-      const activePosters = await BrandingPoster.find({ isActive: true });
-      const isOnlyActivePoster = activePosters.length === 1 && activePosters[0]._id.toString() === posterId;
-
-      // Toggle logic
-      if (poster.isActive) {
-          // Trying to deactivate
-          if (isOnlyActivePoster) {
-              return res.status(400).json({
-                  message: "At least one branding poster must remain active. Please activate another before deactivating this one.",
-              });
-          }
-          poster.isActive = false;
-      } else {
-          // Trying to activate - deactivate all others first
-          await BrandingPoster.updateMany(
-              { _id: { $ne: posterId }, isActive: true },
-              { $set: { isActive: false } }
-          );
-          poster.isActive = true;
-      }
-
-      await poster.save();
-      return res.status(200).json({ 
-          message: `Branding Poster ${poster.isActive ? 'activated' : 'deactivated'} successfully`, 
-          poster 
-      });
-
+    await poster.save();
+    return res.status(200).json({
+      message: `Branding Poster ${
+        poster.isActive ? "activated" : "deactivated"
+      } successfully`,
+      poster,
+    });
   } catch (error) {
-      console.error("Error handling branding poster status:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error("Error handling branding poster status:", error);
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.allBrandingPosters = async (req, res) => {
   try {
-    const posters = await BrandingPoster.find()
-      .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
+    const posters = await BrandingPoster.find().sort({ createdAt: -1 }); // Sort by date descending: newest to oldest
 
-      if(posters.length === 0) 
-        return res.status(404).json({ message: "No branding posters found" });
+    if (posters.length === 0)
+      return res.status(404).json({ message: "No branding posters found" });
 
     res.status(200).json(posters);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.deleteBrandingPoster = async (req, res) => {
   try {
@@ -761,37 +862,40 @@ routes.deleteBrandingPoster = async (req, res) => {
       poster.image.map(async (imageUrl) => {
         try {
           // Extract the full public ID from Cloudinary URL
-          const urlParts = imageUrl.split('/');
-          const uploadIndex = urlParts.indexOf('upload') + 1;
-          
+          const urlParts = imageUrl.split("/");
+          const uploadIndex = urlParts.indexOf("upload") + 1;
+
           if (uploadIndex === 0) {
-            console.error('Invalid Cloudinary URL format:', imageUrl);
-            return { success: false, url: imageUrl, error: 'Invalid URL format' };
+            console.error("Invalid Cloudinary URL format:", imageUrl);
+            return {
+              success: false,
+              url: imageUrl,
+              error: "Invalid URL format",
+            };
           }
 
           // Get everything after 'upload/' which includes version/folders/filename
-          const pathAfterUpload = urlParts.slice(uploadIndex).join('/');
-          
+          const pathAfterUpload = urlParts.slice(uploadIndex).join("/");
+
           // Remove version if present (v123456/)
-          const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, '');
-          
+          const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, "");
+
           // Remove file extension
-          const publicId = pathWithoutVersion.split('.')[0];
-          
-          console.log('Deleting Cloudinary file with publicId:', publicId);
+          const publicId = pathWithoutVersion.split(".")[0];
+
+          console.log("Deleting Cloudinary file with publicId:", publicId);
 
           // Delete from Cloudinary
           const result = await cloudinary.v2.uploader.destroy(publicId, {
-            invalidate: true
+            invalidate: true,
           });
 
-          if (result.result !== 'ok') {
-            console.error('Cloudinary deletion failed:', result);
+          if (result.result !== "ok") {
+            console.error("Cloudinary deletion failed:", result);
             return { success: false, url: imageUrl, error: result.result };
           }
 
           return { success: true, url: imageUrl, publicId };
-
         } catch (error) {
           console.error(`Error deleting image ${imageUrl}:`, error.message);
           return { success: false, url: imageUrl, error: error.message };
@@ -802,15 +906,14 @@ routes.deleteBrandingPoster = async (req, res) => {
     // 4. Delete the poster from MongoDB
     await BrandingPoster.findByIdAndDelete(posterId);
 
-    res.status(200).json({ 
-      message: 'Branding Poster deleted successfully',
+    res.status(200).json({
+      message: "Branding Poster deleted successfully",
     });
-
   } catch (error) {
     console.error("Error deleting branding poster:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Server error during poster deletion",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -819,8 +922,16 @@ routes.createPlan = async (req, res) => {
   try {
     const { name, description, price, duration, features } = req.body;
 
-    if (!name || !price || !duration || !Array.isArray(features) || features.length === 0) {
-      return res.status(400).json({ message: "Missing some fields or features is empty" });
+    if (
+      !name ||
+      !price ||
+      !duration ||
+      !Array.isArray(features) ||
+      features.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Missing some fields or features is empty" });
     }
 
     const newPlan = new Plan({
@@ -832,96 +943,113 @@ routes.createPlan = async (req, res) => {
     });
 
     const savedPlan = await newPlan.save();
-    res.status(201).json({ message: "Plan created successfully", plan: savedPlan });
-
+    res
+      .status(201)
+      .json({ message: "Plan created successfully", plan: savedPlan });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.allPlans = async (req, res) => {
   try {
-    const plans = await Plan.find()
-      .sort({ createdAt: -1 }) // Sort by date descending: newest to oldest
+    const plans = await Plan.find().sort({ createdAt: -1 }); // Sort by date descending: newest to oldest
 
-    if(plans.length === 0) 
-        return res.status(404).json({ message: "No plans found" });
+    if (plans.length === 0)
+      return res.status(404).json({ message: "No plans found" });
 
     res.status(200).json(plans);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.planById = async (req, res) => {
   try {
     const { planId } = req.params;
-      
-      if (!planId) return res.status(400).json({ message: "Plan ID is required" });
-  
-      const plan = await Plan.findById(planId);
-          
-          if (!plan) {
-              return res.status(404).json({ 
-                  success: false,
-                  message: "Plan not found" 
-              });
-          }
-  
-          res.status(200).json({ 
-              success: true,
-              plan 
-          });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
+
+    if (!planId)
+      return res.status(400).json({ message: "Plan ID is required" });
+
+    const plan = await Plan.findById(planId);
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
     }
+
+    res.status(200).json({
+      success: true,
+      plan,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
+};
 
 routes.updatePlan = async (req, res) => {
   try {
     const { planId } = req.params;
     const { description, price, duration, features } = req.body;
 
-    if (!planId) return res.status(400).json({ message: "Plan ID is required" });
-    if (!price || !duration || !Array.isArray(features) || features.length === 0) {
-      return res.status(400).json({ message: "Missing some fields or features is empty" });
+    if (!planId)
+      return res.status(400).json({ message: "Plan ID is required" });
+    if (
+      !price ||
+      !duration ||
+      !Array.isArray(features) ||
+      features.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Missing some fields or features is empty" });
     }
 
-    const updatedPlan = await Plan.findByIdAndUpdate(planId, {
-      description,
-      price,
-      duration,
-      features,
-    }, { new: true });
+    const updatedPlan = await Plan.findByIdAndUpdate(
+      planId,
+      {
+        description,
+        price,
+        duration,
+        features,
+      },
+      { new: true }
+    );
 
-    if (!updatedPlan) return res.status(404).json({ message: "Plan not found" });
+    if (!updatedPlan)
+      return res.status(404).json({ message: "Plan not found" });
 
-    res.status(200).json({ message: "Plan updated successfully", plan: updatedPlan });
-
+    res
+      .status(200)
+      .json({ message: "Plan updated successfully", plan: updatedPlan });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.deletePlan = async (req, res) => {
   try {
     const { planId } = req.params;
 
-    if (!planId) return res.status(400).json({ message: "Plan ID is required" });
+    if (!planId)
+      return res.status(400).json({ message: "Plan ID is required" });
 
     const deletedPlan = await Plan.findByIdAndDelete(planId);
-    if (!deletedPlan) return res.status(404).json({ message: "Plan not found" });
+    if (!deletedPlan)
+      return res.status(404).json({ message: "Plan not found" });
 
     res.status(200).json({ message: "Plan deleted successfully", deletedPlan });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 routes.allTestimonial = async (req, res) => {
   try {
@@ -933,7 +1061,10 @@ routes.allTestimonial = async (req, res) => {
       .sort({ rating: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('createdBy', 'profilePhoto firstName lastName designation email');
+      .populate(
+        "createdBy",
+        "profilePhoto firstName lastName designation email"
+      );
 
     const total = await Testimonial.countDocuments();
 
@@ -943,15 +1074,15 @@ routes.allTestimonial = async (req, res) => {
       total,
       pages: Math.ceil(total / limit),
       currentPage: page,
-      data: testimonials
+      data: testimonials,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: "Server error",
     });
   }
-}
+};
 
 export default routes;

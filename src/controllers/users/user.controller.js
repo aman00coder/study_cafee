@@ -342,15 +342,46 @@ routes.getBannerSet = async (req, res) => {
 
 routes.getAllCategory = async (req, res) => {
     try {
-        const categories = await Category.find({});
-        if (!categories) return res.status(404).json({ message: "No categories found" });
-
-        return res.status(200).json({ message: "Categories fetched successfully", categories });
+      // Step 1: Fetch all categories
+      const categories = await Category.find({}).lean(); // Use .lean() for better performance
+  
+      if (!categories.length) {
+        return res.status(404).json({ message: "No categories found" });
+      }
+  
+      // Step 2: Create a map of categories by ID
+      const categoryMap = {};
+      categories.forEach(cat => {
+        cat.subcategories = []; // prepare field to hold nested subcategories
+        categoryMap[cat._id.toString()] = cat;
+      });
+  
+      // Step 3: Organize into nested structure
+      const nestedCategories = [];
+  
+      categories.forEach(cat => {
+        if (cat.parentCategory) {
+          const parentId = cat.parentCategory.toString();
+          if (categoryMap[parentId]) {
+            categoryMap[parentId].subcategories.push(cat);
+          }
+        } else {
+          // Top-level (parent) category
+          nestedCategories.push(cat);
+        }
+      });
+  
+      res.status(200).json({
+        message: "Categories fetched successfully",
+        categories: nestedCategories
+      });
+  
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Internal Server error" });
     }
-}
+  };
+  
 
 routes.postersByCategory = async (req, res) => {
     try {
