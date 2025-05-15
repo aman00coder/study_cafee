@@ -33,6 +33,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .patch("/brandStatus/:posterId", authMiddleware(["admin"]), adminController.handleBrandingStatus)
       .get("/allBrandingPosters", authMiddleware(["admin"]), adminController.allBrandingPosters)
       .delete("/deleteBranding/:posterId", authMiddleware(["admin"]), adminController.deleteBrandingPoster)
+
+      //Plan Routes
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
       .get("/allPlan", adminController.allPlans)
       .get("/planById/:planId", authMiddleware(["admin"]), adminController.planById)

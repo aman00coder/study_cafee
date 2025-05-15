@@ -25,4 +25,7 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .patch("/updateReview/:testimonialId", authMiddleware(["user"]), userController.updateTestimonial)
       .delete("/deleteReview/:testimonialId", authMiddleware(["user"]), userController.deleteTestimonial)
 
+      //DownloadPosers
+      .post("/downloadPoster/:posterId", authMiddleware(["user"]), userController.downloadPoster)
+
 export default router;

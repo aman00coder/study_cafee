@@ -4,6 +4,7 @@ import Category from '../../models/category.model.js';
 import Poster from '../../models/posters.model.js';
 import Designation from '../../models/designation.model.js';
 import Testimonial from '../../models/testimonails.model.js';
+import PlanPurchase from '../../models/planPurchase.model.js'
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -544,6 +545,40 @@ routes.deleteTestimonial = async (req, res) => {
         res.status(500).json({ message: "Internal Server error" });
     }
 }
+
+routes.downloadPoster = async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const { posterId } = req.params;
+  
+      const activePlan = await PlanPurchase.findOne({ user: userId, isActive: true }).populate('plan');
+      if (!activePlan || !activePlan.plan) {
+        return res.status(403).json({ message: 'No active plan found' });
+      }
+  
+      const allowedCategoryIds = activePlan.plan.categories.map(id => id.toString());
+  
+      const subCategories = await Category.find({ parentCategory: { $in: allowedCategoryIds } });
+      const allCategoryIds = [
+        ...allowedCategoryIds,
+        ...subCategories.map(sub => sub._id.toString()),
+      ];
+  
+      const poster = await Poster.findById(posterId);
+      if (!poster || !poster.category || !allCategoryIds.includes(poster.category.toString())) {
+        return res.status(403).json({ message: 'You are not allowed to download this poster' });
+      }
+  
+      // Optionally: Track the download here
+  
+      res.status(200).json({ message: "Poster download allowed", imageUrl: poster.image });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
+  
+  
 
     
 export default routes;

@@ -920,37 +920,37 @@ routes.deleteBrandingPoster = async (req, res) => {
 
 routes.createPlan = async (req, res) => {
   try {
-    const { name, description, price, duration, features } = req.body;
+    const { name, billingOptions, categories } = req.body;
 
     if (
       !name ||
-      !price ||
-      !duration ||
-      !Array.isArray(features) ||
-      features.length === 0
+      !billingOptions?.monthly ||
+      !billingOptions?.yearly ||
+      !categories ||
+      categories.length === 0
     ) {
-      return res
-        .status(400)
-        .json({ message: "Missing some fields or features is empty" });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     const newPlan = new Plan({
       name,
-      description,
-      price,
-      duration,
-      features,
+      billingOptions,
+      categories
     });
 
-    const savedPlan = await newPlan.save();
-    res
-      .status(201)
-      .json({ message: "Plan created successfully", plan: savedPlan });
+    await newPlan.save();
+
+    res.status(201).json({
+      message: "Plan created successfully",
+      plan: newPlan
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 routes.allPlans = async (req, res) => {
   try {
@@ -995,38 +995,29 @@ routes.planById = async (req, res) => {
 routes.updatePlan = async (req, res) => {
   try {
     const { planId } = req.params;
-    const { description, price, duration, features } = req.body;
+    const { name, billingOptions, categories, isActive } = req.body;
 
-    if (!planId)
+    if (!planId) {
       return res.status(400).json({ message: "Plan ID is required" });
-    if (
-      !price ||
-      !duration ||
-      !Array.isArray(features) ||
-      features.length === 0
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Missing some fields or features is empty" });
     }
 
-    const updatedPlan = await Plan.findByIdAndUpdate(
-      planId,
-      {
-        description,
-        price,
-        duration,
-        features,
-      },
-      { new: true }
-    );
-
-    if (!updatedPlan)
+    const plan = await Plan.findById(planId);
+    if (!plan) {
       return res.status(404).json({ message: "Plan not found" });
+    }
 
-    res
-      .status(200)
-      .json({ message: "Plan updated successfully", plan: updatedPlan });
+    if (name !== undefined) plan.name = name;
+    if (billingOptions?.monthly !== undefined) plan.billingOptions.monthly = billingOptions.monthly;
+    if (billingOptions?.yearly !== undefined) plan.billingOptions.yearly = billingOptions.yearly;
+    if (categories !== undefined) plan.categories = categories;
+    if (isActive !== undefined) plan.isActive = isActive;
+
+    const updatedPlan = await plan.save();
+
+    res.status(200).json({
+      message: "Plan updated successfully",
+      plan: updatedPlan,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

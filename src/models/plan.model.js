@@ -3,24 +3,22 @@ import mongoose from "mongoose";
 const planSchema = new mongoose.Schema({
     name: {
         type: String,
-        enum: ["Silver", "Golden", "Platinum"], 
         required: true,
     },
-    description: {
-        type: String,
-    },
-    price: {
-        type: Number,
-        required: true,
-    },
-    duration: {
-        type: Number,
-        required: true,
-    },
-    features: {
-        type: [String], // List of features included in the plan
-        required: true,
-    },
+    billingOptions: {
+        monthly: {
+            type: Number,
+            required: true
+        },
+        yearly: {
+            type: Number,
+            required: true
+        }
+    }, 
+    categories: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Category' 
+    }],
     isActive: {
         type: Boolean,
         default: true,
