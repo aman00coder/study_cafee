@@ -1,6 +1,8 @@
 import express from "express"
 import userController from "../../controllers/users/user.controller.js"
 import upload from "../../middleware/multer.middleware.js"
+import purchaseController from "../../controllers/plans/purchase.controller.js"
+
 import authMiddleware from "../../middleware/auth.middleware.js"
 
 const router = express.Router()
@@ -27,5 +29,8 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
 
       //DownloadPosers
       .post("/downloadPoster/:posterId", authMiddleware(["user"]), userController.downloadPoster)
+
+      //Plan Purchase
+      .post("/purchasePlan/:planId", authMiddleware(["user"]), purchaseController.purchasePlan)
 
 export default router;

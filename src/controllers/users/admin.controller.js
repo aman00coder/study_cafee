@@ -954,7 +954,7 @@ routes.createPlan = async (req, res) => {
 
 routes.allPlans = async (req, res) => {
   try {
-    const plans = await Plan.find().sort({ createdAt: -1 }); // Sort by date descending: newest to oldest
+    const plans = await Plan.find().sort({ createdAt: -1 }).populate("categories", "name"); // Sort by date descending: newest to oldest
 
     if (plans.length === 0)
       return res.status(404).json({ message: "No plans found" });
@@ -1055,7 +1055,7 @@ routes.allTestimonial = async (req, res) => {
       .populate(
         "createdBy",
         "profilePhoto firstName lastName designation email"
-      );
+      ).populate("designation", "name");
 
     const total = await Testimonial.countDocuments();
 
