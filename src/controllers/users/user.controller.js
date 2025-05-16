@@ -5,6 +5,7 @@ import Poster from '../../models/posters.model.js';
 import Designation from '../../models/designation.model.js';
 import Testimonial from '../../models/testimonails.model.js';
 import PlanPurchase from '../../models/planPurchase.model.js'
+import BrandingPoster from '../../models/brandingPosters.model.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -429,6 +430,18 @@ routes.postersById = async (req, res) => {
         if (!poster) return res.status(404).json({ message: "Poster not found" });
 
         return res.status(200).json({ message: "Poster fetched successfully", poster });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
+routes.getBrandingSet = async (req, res) => {
+    try {
+        const brandingSet = await BrandingPoster.findOne({ isActive: true });
+        if (!brandingSet) return res.status(404).json({ message: "No active branding set found" });
+
+        return res.status(200).json({ message: "Branding set fetched successfully", brandingSet });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Internal Server error" });

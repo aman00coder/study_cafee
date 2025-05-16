@@ -17,6 +17,9 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .get("/allDesignation", userController.allDesignation)
       .get("/UserProfile",authMiddleware(["user"]), userController.getUserProfile)
       .get("/getBanner", userController.getBannerSet)
+
+      //Branding Routes
+      .get("/getBrandingPosters", userController.getBrandingSet)
       .get("/allCategory", userController.getAllCategory)
       .get("/postersByCategory/:categoryId", userController.postersByCategory)
       .get("/postersById/:posterId", userController.postersById)
