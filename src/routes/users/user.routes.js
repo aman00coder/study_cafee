@@ -34,6 +34,7 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .post("/downloadPoster/:posterId", authMiddleware(["user"]), userController.downloadPoster)
 
       //Plan Purchase
-      .post("/purchasePlan/:planId", authMiddleware(["user"]), purchaseController.purchasePlan)
+      .post("/payment/create-order", authMiddleware(["user"]), purchaseController.createOrder)
+      .post("/payment/purchasePlan", authMiddleware(["user"]), purchaseController.purchasePlan)
 
 export default router;

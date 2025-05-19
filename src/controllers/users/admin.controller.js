@@ -8,6 +8,8 @@ import Plan from "../../models/plan.model.js";
 import BrandingPoster from "../../models/brandingPosters.model.js";
 import Designation from "../../models/designation.model.js";
 import Testimonial from "../../models/testimonails.model.js";
+import PaymentOrder from "../../models/paymentOrder.model.js";
+import PlanPurchase from "../../models/planPurchase.model.js";
 import { uploadToCloudinary } from "../../services/cloudinary.js";
 import fs from "fs";
 import { sendOTP } from "../../services/nodemailer.js";
@@ -1073,6 +1075,40 @@ routes.allTestimonial = async (req, res) => {
       success: false,
       message: "Server error",
     });
+  }
+};
+
+//View all payment 
+routes.allPayment = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") return res.status(403).json({ message: "Unauthorized" });
+
+    const payments = await PaymentOrder.find()
+      .populate("user", "firstName lastName email")
+      .populate("plan", "name")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ message: "Payments fetched", payments });
+  } catch (err) {
+    console.error("Admin Payments Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+//View all Purchase
+routes.allPurchase = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") return res.status(403).json({ message: "Unauthorized" });
+
+    const purchases = await PlanPurchase.find()
+      .populate("user", "firstName lastName email")
+      .populate("plan", "name")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ message: "Purchases fetched", purchases });
+  } catch (err) {
+    console.error("Admin Purchases Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 

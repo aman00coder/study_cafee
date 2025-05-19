@@ -48,4 +48,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       //Review
       .get("/allTestimonial", adminController.allTestimonial)
+
+      //Plan Purchase
+      .get("/allPayment", authMiddleware(["admin"]), adminController.allPayment)
+      .get("/allPurchase", authMiddleware(["admin"]), adminController.allPurchase)
 export default router;

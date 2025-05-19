@@ -1,5 +1,6 @@
 import PlanPurchase from "../../models/planPurchase.model.js";
 import Plan from "../../models/plan.model.js";
+import PaymentOrder from "../../models/paymentOrder.model.js";
 import razorpay from "../../services/razorpay.js";
 import crypto from "crypto";
 
@@ -10,21 +11,37 @@ const routes = {};
 routes.createOrder = async (req, res) => {
   try {
     const { planId, selectedCycle } = req.body;
+    const userId = req.user?._id;
+
+    if (!planId || !selectedCycle || !userId)
+      return res.status(400).json({ message: "Missing required fields" });
 
     const plan = await Plan.findById(planId);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
-    const amount = plan.billingOptions[selectedCycle] * 100;
+    const amount = Math.round(plan.billingOptions[selectedCycle] * 100);
 
-    const order = await razorpay.orders.create({
+    const razorpayOrder = await razorpay.orders.create({
       amount,
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
     });
 
+    const paymentOrder = new PaymentOrder({
+      user: userId,
+      plan: planId,
+      selectedCycle,
+      selectedPrice: plan.billingOptions[selectedCycle],
+      amount,
+      razorpayOrderId: razorpayOrder.id,
+      status: "created",
+    });
+
+    await paymentOrder.save();
+
     res.status(200).json({
       message: "Order created",
-      order,
+      order: razorpayOrder,
       planName: plan.name,
       amount,
     });
@@ -44,42 +61,40 @@ function verifySignature(order_id, payment_id, signature) {
 
 routes.purchasePlan = async (req, res) => {
   try {
-    const { order_id, payment_id, signature, planId, selectedCycle } = req.body;
+    const { order_id, payment_id, signature } = req.body;
     const userId = req.user?._id;
 
-    if (!userId || !order_id || !payment_id || !signature || !planId || !selectedCycle) {
+    if (!userId || !order_id || !payment_id || !signature)
       return res.status(400).json({ message: "Missing required fields" });
-    }
 
-    // Verify signature
+    const paymentOrder = await PaymentOrder.findOne({ razorpayOrderId: order_id });
+    if (!paymentOrder)
+      return res.status(404).json({ message: "Payment order not found" });
+
     if (!verifySignature(order_id, payment_id, signature)) {
+      paymentOrder.status = "failed";
+      await paymentOrder.save();
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
-    // Fetch the plan
-    const plan = await Plan.findById(planId);
-    if (!plan) return res.status(404).json({ message: "Plan not found" });
+    // Update payment status to paid
+    paymentOrder.razorpayPaymentId = payment_id;
+    paymentOrder.razorpaySignature = signature;
+    paymentOrder.status = "paid";
+    await paymentOrder.save();
 
-    const selectedPrice = plan.billingOptions[selectedCycle];
-    if (!selectedPrice) {
-      return res.status(400).json({ message: "Price not available for selected cycle" });
-    }
-
-    // Calculate start and end dates
+    // Set subscription period
     const startDate = new Date();
     const endDate = new Date(startDate);
-    if (selectedCycle === "monthly") {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    }
+    if (paymentOrder.selectedCycle === "monthly") endDate.setMonth(endDate.getMonth() + 1);
+    else endDate.setFullYear(endDate.getFullYear() + 1);
 
-    // Create PlanPurchase record
+    // Save plan purchase
     const newPurchase = new PlanPurchase({
       user: userId,
-      plan: planId,
-      selectedCycle,
-      selectedPrice,
+      plan: paymentOrder.plan,
+      selectedCycle: paymentOrder.selectedCycle,
+      selectedPrice: paymentOrder.selectedPrice,
       startDate,
       endDate,
     });
@@ -87,7 +102,7 @@ routes.purchasePlan = async (req, res) => {
     await newPurchase.save();
 
     res.status(201).json({
-      message: "Plan purchased and payment verified successfully",
+      message: "Payment verified and plan purchased",
       data: newPurchase,
     });
   } catch (error) {
