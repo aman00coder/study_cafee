@@ -934,7 +934,7 @@ routes.deleteBrandingPoster = async (req, res) => {
 
 routes.createPlan = async (req, res) => {
   try {
-    const { name, billingOptions, categories } = req.body;
+    const { name, billingOptions, categories, taxType, taxPercentage } = req.body;
 
     if (
       !name ||
@@ -943,13 +943,20 @@ routes.createPlan = async (req, res) => {
       !categories ||
       categories.length === 0
     ) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All required fields are missing" });
+    }
+
+    // Validate taxPercentage if taxType is provided
+    if (taxType && taxType === "exclusive" && (taxPercentage === undefined || taxPercentage === null)) {
+      return res.status(400).json({ message: "Tax percentage is required for exclusive tax type" });
     }
 
     const newPlan = new Plan({
       name,
       billingOptions,
-      categories
+      categories,
+      taxType: taxType || "inclusive", // default to inclusive
+      taxPercentage: taxPercentage !== undefined ? Number(taxPercentage) : 0
     });
 
     await newPlan.save();
@@ -1009,7 +1016,7 @@ routes.planById = async (req, res) => {
 routes.updatePlan = async (req, res) => {
   try {
     const { planId } = req.params;
-    const { name, billingOptions, categories, isActive } = req.body;
+    const { name, billingOptions, categories, isActive, taxType, taxPercentage } = req.body;
 
     if (!planId) {
       return res.status(400).json({ message: "Plan ID is required" });
@@ -1020,11 +1027,29 @@ routes.updatePlan = async (req, res) => {
       return res.status(404).json({ message: "Plan not found" });
     }
 
+    // Update fields
     if (name !== undefined) plan.name = name;
     if (billingOptions?.monthly !== undefined) plan.billingOptions.monthly = billingOptions.monthly;
     if (billingOptions?.yearly !== undefined) plan.billingOptions.yearly = billingOptions.yearly;
     if (categories !== undefined) plan.categories = categories;
     if (isActive !== undefined) plan.isActive = isActive;
+    
+    // Update tax fields with validation
+    if (taxType !== undefined) {
+      plan.taxType = taxType;
+      // If changing to exclusive and no percentage provided, keep current or default to 0
+      if (taxType === "exclusive" && taxPercentage === undefined) {
+        plan.taxPercentage = plan.taxPercentage || 0;
+      }
+    }
+    if (taxPercentage !== undefined) {
+      // Validate that percentage is a number
+      const percentage = Number(taxPercentage);
+      if (isNaN(percentage)) {
+        return res.status(400).json({ message: "Tax percentage must be a number" });
+      }
+      plan.taxPercentage = percentage;
+    }
 
     const updatedPlan = await plan.save();
 
