@@ -30,7 +30,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/addPoster", authMiddleware(["admin"]), upload.single('image'), adminController.addPosters)
       .get("/allPosters", authMiddleware(["admin"]), adminController.allPosters)
       .delete("/deletePoster/:posterId", authMiddleware(["admin"]), adminController.deletePoster)
-      
+
       .post("/brandingPosters", authMiddleware(["admin"]), upload.array('image'), adminController.postersForBranding)
       .patch("/brandStatus/:posterId", authMiddleware(["admin"]), adminController.handleBrandingStatus)
       .get("/allBrandingPosters", authMiddleware(["admin"]), adminController.allBrandingPosters)
@@ -47,7 +47,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .post("/createCoupon", authMiddleware(["admin"]), couponController.createCoupon)
       .patch("/updateCoupon/:couponId", authMiddleware(["admin"]), couponController.updateCoupon)
       .get("/allCoupons", authMiddleware(["admin","user"]), couponController.allCoupons)
-      .get("/validateCoupon/:code", authMiddleware(["admin"]), couponController.validateCoupon)
+      .get("/validateCoupon/:code", authMiddleware(["user"]), couponController.validateCoupon)
 
       //Review
       .get("/allTestimonial", adminController.allTestimonial)
