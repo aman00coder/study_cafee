@@ -209,7 +209,6 @@ routes.createBanner = async (req, res) => {
   try {
     const { title, description, isActive } = req.body;
 
-    // Check if images are uploaded
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No images uploaded" });
     }
@@ -225,30 +224,31 @@ routes.createBanner = async (req, res) => {
         .status(400)
         .json({ message: "Same title named banner already exists" });
 
-    // Upload all images to Cloudinary
     const imageUrls = await Promise.all(
       req.files.slice(0, 3).map(async (file) => {
-        // Ensures only 3 even if frontend sends more
         const result = await uploadToCloudinary(file.path, "Banner");
-        fs.unlinkSync(file.path); // Delete temp file
+        fs.unlinkSync(file.path);
         return result.secure_url;
       })
     );
 
-    // If this set is to be active, deactive others
-    if (isActive === "true" || isActive === true) {
-      await Banner.updateMany(
-        { isActive: true },
-        { $set: { isActive: false } }
-      );
+    let active = isActive === "true" || isActive === true;
+
+    const totalBanners = await Banner.countDocuments();
+
+    // If it's the first banner, automatically make it active
+    if (totalBanners === 0) {
+      active = true;
+    } else if (active) {
+      // If requested to be active, deactivate others
+      await Banner.updateMany({ isActive: true }, { $set: { isActive: false } });
     }
 
-    // Create and save new banner set
     const newBanner = new Banner({
       image: imageUrls,
       title,
       description,
-      isActive: isActive === "true" || isActive === true,
+      isActive: active,
     });
 
     await newBanner.save();
@@ -392,22 +392,29 @@ routes.deleteBanner = async (req, res) => {
   try {
     const { bannerId } = req.params;
 
+    // Check how many banners exist
+    const totalBanners = await Banner.countDocuments();
+    if (totalBanners <= 1) {
+      return res.status(400).json({
+        message: "At least one banner set must remain. Cannot delete the last one.",
+      });
+    }
+
     // 1. Find the banner to be deleted
     const banner = await Banner.findById(bannerId);
     if (!banner) {
       return res.status(404).json({ message: "Banner not found" });
     }
 
+    const wasActive = banner.isActive;
+
     // 2. Delete all associated images from Cloudinary
     const deletionResults = await Promise.all(
       banner.image.map(async (imageUrl) => {
         try {
-          // Extract the full public ID from Cloudinary URL
           const urlParts = imageUrl.split("/");
           const uploadIndex = urlParts.indexOf("upload") + 1;
-
           if (uploadIndex === 0) {
-            console.error("Invalid Cloudinary URL format:", imageUrl);
             return {
               success: false,
               url: imageUrl,
@@ -415,30 +422,20 @@ routes.deleteBanner = async (req, res) => {
             };
           }
 
-          // Get everything after 'upload/' which includes version/folders/filename
           const pathAfterUpload = urlParts.slice(uploadIndex).join("/");
-
-          // Remove version if present (v123456/)
           const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, "");
-
-          // Remove file extension
           const publicId = pathWithoutVersion.split(".")[0];
 
-          console.log("Deleting Cloudinary file with publicId:", publicId);
-
-          // Delete from Cloudinary
           const result = await cloudinary.v2.uploader.destroy(publicId, {
             invalidate: true,
           });
 
           if (result.result !== "ok") {
-            console.error("Cloudinary deletion failed:", result);
             return { success: false, url: imageUrl, error: result.result };
           }
 
           return { success: true, url: imageUrl, publicId };
         } catch (error) {
-          console.error(`Error deleting image ${imageUrl}:`, error.message);
           return { success: false, url: imageUrl, error: error.message };
         }
       })
@@ -446,6 +443,14 @@ routes.deleteBanner = async (req, res) => {
 
     // 3. Delete the banner from MongoDB
     await Banner.findByIdAndDelete(bannerId);
+
+    // 4. If the deleted banner was active, activate another one (if any)
+    const remainingBanners = await Banner.find();
+    if (wasActive && remainingBanners.length > 0) {
+      await Banner.findByIdAndUpdate(remainingBanners[0]._id, {
+        isActive: true,
+      });
+    }
 
     res.status(200).json({
       message: "Banner deleted successfully",
@@ -458,6 +463,7 @@ routes.deleteBanner = async (req, res) => {
     });
   }
 };
+
 
 // Create a new category
 routes.createCategory = async (req, res) => {
@@ -848,27 +854,33 @@ routes.deleteBrandingPoster = async (req, res) => {
   try {
     const { posterId } = req.params;
 
-    // 1. Validate input
+    // Validate
     if (!posterId) {
       return res.status(400).json({ message: "Poster ID is required" });
     }
 
-    // 2. Find the poster to be deleted
+    // Count total posters
+    const totalPosters = await BrandingPoster.countDocuments();
+    if (totalPosters <= 1) {
+      return res.status(400).json({
+        message: "At least one branding poster must remain. Cannot delete the last one.",
+      });
+    }
+
     const poster = await BrandingPoster.findById(posterId);
     if (!poster) {
       return res.status(404).json({ message: "Poster not found" });
     }
 
-    // 3. Delete all associated images from Cloudinary
+    const wasActive = poster.isActive;
+
+    // Delete all associated images from Cloudinary
     const deletionResults = await Promise.all(
       poster.image.map(async (imageUrl) => {
         try {
-          // Extract the full public ID from Cloudinary URL
           const urlParts = imageUrl.split("/");
           const uploadIndex = urlParts.indexOf("upload") + 1;
-
           if (uploadIndex === 0) {
-            console.error("Invalid Cloudinary URL format:", imageUrl);
             return {
               success: false,
               url: imageUrl,
@@ -876,37 +888,37 @@ routes.deleteBrandingPoster = async (req, res) => {
             };
           }
 
-          // Get everything after 'upload/' which includes version/folders/filename
           const pathAfterUpload = urlParts.slice(uploadIndex).join("/");
-
-          // Remove version if present (v123456/)
           const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, "");
-
-          // Remove file extension
           const publicId = pathWithoutVersion.split(".")[0];
 
-          console.log("Deleting Cloudinary file with publicId:", publicId);
-
-          // Delete from Cloudinary
           const result = await cloudinary.v2.uploader.destroy(publicId, {
             invalidate: true,
           });
 
           if (result.result !== "ok") {
-            console.error("Cloudinary deletion failed:", result);
             return { success: false, url: imageUrl, error: result.result };
           }
 
           return { success: true, url: imageUrl, publicId };
         } catch (error) {
-          console.error(`Error deleting image ${imageUrl}:`, error.message);
           return { success: false, url: imageUrl, error: error.message };
         }
       })
     );
 
-    // 4. Delete the poster from MongoDB
+    // Delete the poster
     await BrandingPoster.findByIdAndDelete(posterId);
+
+    // If the deleted poster was active, activate another one
+    if (wasActive) {
+      const remainingPosters = await BrandingPoster.find().sort({ createdAt: -1 });
+      if (remainingPosters.length > 0) {
+        await BrandingPoster.findByIdAndUpdate(remainingPosters[0]._id, {
+          isActive: true,
+        });
+      }
+    }
 
     res.status(200).json({
       message: "Branding Poster deleted successfully",
@@ -1054,10 +1066,14 @@ routes.allTestimonial = async (req, res) => {
       .sort({ rating: -1 })
       .skip(skip)
       .limit(limit)
-      .populate(
-        "createdBy",
-        "profilePhoto firstName lastName designation email"
-      ).populate("designation", "name");
+      .populate({
+        path: "createdBy",
+        select: "profilePhoto firstName lastName designation email",
+        populate: {
+          path: "designation",
+          select: "name"
+        }
+      });
 
     const total = await Testimonial.countDocuments();
 

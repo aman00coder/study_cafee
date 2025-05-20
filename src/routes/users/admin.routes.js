@@ -12,6 +12,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .patch("/reset-Password", adminController.resetPassword)
       .post("/add-Designation", authMiddleware(["admin"]), adminController.createDesignation)
       .delete("/delete-Designation/:id", authMiddleware(["admin"]), adminController.deleteDesignation)
+
+      //Banner Routes
       .post("/add-Banner", authMiddleware(["admin"]), upload.array('image') , adminController.createBanner)
       .get("/all-Banner", authMiddleware(["admin"]), adminController.allBanner)
       .patch("/updateBannerStatus/:bannerId",authMiddleware(["admin"]), adminController.handleBannerStatus)
@@ -43,6 +45,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       //Plans Routes
       .post("/createCoupon", authMiddleware(["admin"]), couponController.createCoupon)
+      .patch("/updateCoupon/:couponId", authMiddleware(["admin"]), couponController.updateCoupon)
       .get("/allCoupons", authMiddleware(["admin","user"]), couponController.allCoupons)
       .get("/validateCoupon/:code", authMiddleware(["admin"]), couponController.validateCoupon)
 
@@ -52,4 +55,5 @@ router.post("/registerAdmin", adminController.registerAdmin)
       //Plan Purchase
       .get("/allPayment", authMiddleware(["admin"]), adminController.allPayment)
       .get("/allPurchase", authMiddleware(["admin"]), adminController.allPurchase)
+
 export default router;

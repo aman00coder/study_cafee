@@ -85,13 +85,40 @@ routes.validateCoupon = async (req, res) => {
 };
 
 routes.updateCoupon = async (req, res) => {
-    try {
-        const { couponId } = req.params;
-        const { discountValue   , expiryDate, discountType, usageLimit } = req.body;
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error" });
+  try {
+    const { couponId } = req.params;
+    const {
+      code,
+      discountValue,
+      expiryDate,
+      discountType,
+      usageLimit,
+      isActive,
+    } = req.body;
+
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
     }
-}
+
+    // Update only the provided fields
+    if (code) coupon.code = code.toUpperCase();
+    if (discountValue !== undefined) coupon.discountValue = discountValue;
+    if (expiryDate) coupon.expiryDate = new Date(expiryDate);
+    if (discountType) coupon.discountType = discountType;
+    if (usageLimit !== undefined) coupon.usageLimit = usageLimit;
+    if (isActive !== undefined) coupon.isActive = isActive;
+
+    await coupon.save();
+
+    return res
+      .status(200)
+      .json({ message: "Coupon updated successfully", coupon });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 export default routes;
