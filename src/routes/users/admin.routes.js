@@ -39,7 +39,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       //Plan Routes
       .post("/createPlan", authMiddleware(["admin"]), adminController.createPlan)
       .get("/allPlan", adminController.allPlans)
-      .get("/planById/:planId", authMiddleware(["admin"]), adminController.planById)
+      .get("/planById/:planId", authMiddleware(["admin","user"]), adminController.planById)
       .patch("/updatePlan/:planId", authMiddleware(["admin"]), adminController.updatePlan)
       .delete("/deletePlan/:planId", authMiddleware(["admin"]), adminController.deletePlan)
 
