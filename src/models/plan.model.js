@@ -19,6 +19,15 @@ const planSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Category' 
     }],
+    taxType: {
+        type: String,
+        enum: ["inclusive", "exclusive"],
+        default: "inclusive"
+      },
+      taxPercentage: {
+        type: Number,
+        default: 0 // e.g., 18 for 18%
+      },      
     isActive: {
         type: Boolean,
         default: true,

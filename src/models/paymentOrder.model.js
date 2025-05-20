@@ -10,6 +10,10 @@ const paymentOrderSchema = new mongoose.Schema({
   razorpayPaymentId: { type: String },
   razorpaySignature: { type: String },
   status: { type: String, enum: ["created", "paid", "failed"], default: "created" },
+  appliedCoupon: {
+    type: String, // coupon code
+    default: null
+  },
 }, { timestamps: true });
 
 const PaymentOrder = mongoose.model("PaymentOrder", paymentOrderSchema);

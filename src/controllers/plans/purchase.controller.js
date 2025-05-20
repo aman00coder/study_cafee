@@ -1,6 +1,7 @@
 import PlanPurchase from "../../models/planPurchase.model.js";
 import Plan from "../../models/plan.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
+import Coupon from "../../models/coupon.model.js";
 import razorpay from "../../services/razorpay.js";
 import crypto from "crypto";
 
@@ -10,7 +11,7 @@ const routes = {};
 
 routes.createOrder = async (req, res) => {
   try {
-    const { planId, selectedCycle } = req.body;
+    const { planId, selectedCycle, couponCode } = req.body;
     const userId = req.user?._id;
 
     if (!planId || !selectedCycle || !userId)
@@ -19,22 +20,73 @@ routes.createOrder = async (req, res) => {
     const plan = await Plan.findById(planId);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
-    const amount = Math.round(plan.billingOptions[selectedCycle] * 100);
+    let basePrice = plan.billingOptions[selectedCycle];
+    let discount = 0;
+    let appliedCoupon = null;
+    let taxAmount = 0;
+    let finalAmount = 0;
 
+    // ✅ Apply coupon
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+
+      if (!coupon)
+        return res.status(400).json({ message: "Invalid coupon code" });
+
+      if (coupon.expiryDate < new Date())
+        return res.status(400).json({ message: "Coupon has expired" });
+
+      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit)
+        return res.status(400).json({ message: "Coupon usage limit exceeded" });
+
+      // Calculate discount
+      if (coupon.discountType === 'flat') {
+        discount = coupon.discountValue;
+      } else if (coupon.discountType === 'percentage') {
+        discount = (basePrice * coupon.discountValue) / 100;
+      }
+
+      discount = Math.min(discount, basePrice); // Prevent negative pricing
+      appliedCoupon = coupon;
+    }
+
+    // ✅ Handle tax based on tax type
+    const discountedPrice = basePrice - discount;
+
+    if (plan.taxType === "exclusive" && plan.taxPercentage > 0) {
+      taxAmount = (discountedPrice * plan.taxPercentage) / 100;
+      finalAmount = discountedPrice + taxAmount;
+    } else if (plan.taxType === "inclusive" && plan.taxPercentage > 0) {
+      // In inclusive, price includes tax already
+      taxAmount = (discountedPrice * plan.taxPercentage) / (100 + plan.taxPercentage);
+      finalAmount = discountedPrice; // No additional tax added
+    } else {
+      finalAmount = discountedPrice;
+    }
+
+    const finalAmountInPaise = Math.round(finalAmount * 100); // Razorpay uses paise
+
+    // ✅ Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
-      amount,
+      amount: finalAmountInPaise,
       currency: "INR",
-      receipt: `receipt_${Date.now()}`,
+      receipt: `receipt_${Date.now()}`
     });
 
+    // ✅ Save order in DB
     const paymentOrder = new PaymentOrder({
       user: userId,
       plan: planId,
       selectedCycle,
-      selectedPrice: plan.billingOptions[selectedCycle],
-      amount,
+      selectedPrice: basePrice,
+      discount,
+      taxAmount,
+      amount: finalAmountInPaise,
       razorpayOrderId: razorpayOrder.id,
       status: "created",
+      appliedCoupon: appliedCoupon ? appliedCoupon.code : null,
+      taxType: plan.taxType,
+      taxPercentage: plan.taxPercentage
     });
 
     await paymentOrder.save();
@@ -43,13 +95,19 @@ routes.createOrder = async (req, res) => {
       message: "Order created",
       order: razorpayOrder,
       planName: plan.name,
-      amount,
+      amount: finalAmountInPaise,
+      originalPrice: basePrice,
+      discount,
+      taxAmount,
+      couponApplied: appliedCoupon ? appliedCoupon.code : null,
+      taxType: plan.taxType
     });
   } catch (err) {
     console.error("Create Razorpay Order Error:", err);
     res.status(500).json({ message: "Error creating order" });
   }
 };
+
 
 function verifySignature(order_id, payment_id, signature) {
   const generated = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -77,6 +135,16 @@ routes.purchasePlan = async (req, res) => {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
+    const existing = await PlanPurchase.findOne({
+      user: userId,
+      plan: paymentOrder.plan,
+      endDate: { $gte: new Date() } // active plan
+    });
+    
+    if (existing) {
+      return res.status(400).json({ message: "Plan already active for this user" });
+    }
+
     // Update payment status to paid
     paymentOrder.razorpayPaymentId = payment_id;
     paymentOrder.razorpaySignature = signature;
@@ -101,6 +169,14 @@ routes.purchasePlan = async (req, res) => {
 
     await newPurchase.save();
 
+    // Add this AFTER saving the plan purchase
+    if (paymentOrder.appliedCoupon) {
+    await Coupon.findOneAndUpdate(
+      { code: paymentOrder.appliedCoupon },
+      { $inc: { usedCount: 1 } }
+    );
+  }
+
     res.status(201).json({
       message: "Payment verified and plan purchased",
       data: newPurchase,
@@ -112,5 +188,19 @@ routes.purchasePlan = async (req, res) => {
 };
 
 
+//For User to see their purchases
+routes.userPurchases = async (req, res) => {
+  try {
+    const purchases = await PlanPurchase.find({ user: req.user._id })
+    .populate("user", "firstName lastName email")
+      .populate("plan", "name")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ message: "User purchases fetched", purchases });
+  } catch (err) {
+    console.error("User Purchases Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export default routes;

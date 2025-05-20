@@ -43,7 +43,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       //Plans Routes
       .post("/createCoupon", authMiddleware(["admin"]), couponController.createCoupon)
-      .get("/allCoupons", authMiddleware(["admin"]), couponController.allCoupons)
+      .get("/allCoupons", authMiddleware(["admin","user"]), couponController.allCoupons)
       .get("/validateCoupon/:code", authMiddleware(["admin"]), couponController.validateCoupon)
 
       //Review

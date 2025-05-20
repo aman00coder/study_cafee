@@ -541,7 +541,7 @@ routes.deleteTestimonial = async (req, res) => {
         const { testimonialId } = req.params;
         const userId = req.user._id;
 
-        if (testimonial.createdBy.toString() !== userId.toString()) {
+        if (Testimonial.createdBy.toString() !== userId.toString()) {
             return res.status(403).json({ 
                 success: false,
                 message: "Unauthorized: You can only delete your own testimonials" 
@@ -564,9 +564,17 @@ routes.downloadPoster = async (req, res) => {
       const userId = req.user._id;
       const { posterId } = req.params;
   
-      const activePlan = await PlanPurchase.findOne({ user: userId, isActive: true }).populate('plan');
+      const today = new Date();
+  
+      // ✅ Check for active plan and validate current date is within the valid range
+      const activePlan = await PlanPurchase.findOne({
+        user: userId,
+        startDate: { $lte: today },
+        endDate: { $gte: today },
+      }).populate('plan');
+  
       if (!activePlan || !activePlan.plan) {
-        return res.status(403).json({ message: 'No active plan found' });
+        return res.status(403).json({ message: 'No active plan found or plan not yet started' });
       }
   
       const allowedCategoryIds = activePlan.plan.categories.map(id => id.toString());
@@ -582,14 +590,13 @@ routes.downloadPoster = async (req, res) => {
         return res.status(403).json({ message: 'You are not allowed to download this poster' });
       }
   
-      // Optionally: Track the download here
-  
       res.status(200).json({ message: "Poster download allowed", imageUrl: poster.image });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error' });
     }
   };
+  
   
   
 
