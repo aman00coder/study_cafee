@@ -6,6 +6,7 @@ import Designation from '../../models/designation.model.js';
 import Testimonial from '../../models/testimonails.model.js';
 import PlanPurchase from '../../models/planPurchase.model.js'
 import BrandingPoster from '../../models/brandingPosters.model.js';
+import CompanyProfile from '../../models/companyProfile.js';
 import bcrypt from 'bcrypt';
 import { sendOTP } from '../../services/nodemailer.js';
 import jwt from 'jsonwebtoken';
@@ -251,6 +252,86 @@ routes.allDesignation = async (req, res) => {
     }
 }
 
+routes.addCompany = async (req, res) => {
+    try {
+      const {
+        name,
+        companyName,
+        companyAddress,
+        companyPhoneNumber,
+        companyEmail,
+        companyWebsite
+      } = req.body;
+  
+      const userId = req.user?._id || req.body.userId; // depending on your auth logic
+  
+      if (!userId || !name || !companyName || !companyAddress || !companyPhoneNumber || !companyEmail || !companyWebsite || !req.file) {
+        return res.status(400).json({ message: "All fields including logo are required." });
+      }
+  
+      // Upload logo to Cloudinary
+      const uploadResult = await uploadToCloudinary(req.file.path, 'Company-Logos');
+  
+      // Clean up local file
+      fs.unlinkSync(req.file.path);
+  
+      // Create company profile
+      const newCompanyProfile = new CompanyProfile({
+        userId,
+        name,
+        companyName,
+        companyAddress,
+        companyPhoneNumber,
+        companyEmail,
+        companyWebsite,
+        companyLogo: uploadResult.secure_url,
+        isFilled: true
+      });
+  
+      const savedProfile = await newCompanyProfile.save();
+  
+      res.status(201).json({
+        message: "Company profile created successfully.",
+        data: savedProfile
+      });
+  
+    } catch (error) {
+      console.error("Error in addCompany:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  };
+
+  routes.getCompanyById = async (req, res) => {
+    try {
+        const company = await CompanyProfile.findById(req.params.id)
+            .populate('userId', 'firstName lastName email');
+        
+        if (!company) {
+            return res.status(404).json({ message: "Company not found" });
+        }
+        
+        res.status(200).json(company);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching company" });
+    }
+}
+
+routes.getCompanyByUserId = async (req, res) => {
+    try {
+        const company = await CompanyProfile.findOne({ userId: req.params.userId })
+            .populate('userId', 'firstName lastName email');
+        
+        if (!company) {
+            return res.status(404).json({ message: "Company not found for this user" });
+        }
+        
+        res.status(200).json(company);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching company" });
+    }
+}
 
 routes.updateUserProfile = async (req, res) => {
     try {

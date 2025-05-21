@@ -10,6 +10,7 @@ import Designation from "../../models/designation.model.js";
 import Testimonial from "../../models/testimonails.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
 import PlanPurchase from "../../models/planPurchase.model.js";
+import CompanyProfile from "../../models/companyProfile.js"
 import { uploadToCloudinary } from "../../services/cloudinary.js";
 import fs from "fs";
 import { sendOTP } from "../../services/nodemailer.js";
@@ -150,6 +151,19 @@ routes.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+routes.getAllCompanies = async (req, res) => {
+  try {
+      const companies = await CompanyProfile.find()
+          .populate('userId', 'firstName lastName email') // Assuming you want some user details
+          .sort({ createdAt: -1 }); // Newest first
+      
+      res.status(200).json(companies);
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching companies" });
+  }
+}
 
 routes.createDesignation = async (req, res) => {
   try {

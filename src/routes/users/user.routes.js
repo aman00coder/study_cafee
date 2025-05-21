@@ -17,6 +17,12 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .post("/loginUser", userController.loginUser)
       .post("/forget-Password", userController.forgotPassword)
       .patch("/reset-Password", userController.resetPassword)
+
+      //Comapnay Routes
+      .post("/add-company",authMiddleware(["user"]), upload.single('companyLogo'),userController.addCompany)
+      .get("/comapnyById/:id",authMiddleware(["user"]), userController.getCompanyById)
+      .get("/comapnyById/:userId",authMiddleware(["user"]), userController.getCompanyByUserId)
+
       .patch("/updateUser",authMiddleware(["user"]), upload.single("profilePhoto"), userController.updateUserProfile)
       .get("/allDesignation", userController.allDesignation)
       .get("/UserProfile",authMiddleware(["user"]), userController.getUserProfile)
@@ -42,9 +48,9 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .post("/payment/purchasePlan", authMiddleware(["user"]), purchaseController.purchasePlan)
       .get("/purchases", authMiddleware(["user"]), purchaseController.userPurchases)
 
-
             //Invoices
        // Get all invoices for logged-in user
        .get("/allInvoices", authMiddleware(["user"]), getUserInvoices)
        .get("/invoice/:id", authMiddleware(["admin","user"]), getInvoice)
+
 export default router;
