@@ -1,20 +1,26 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
-// Define multer storage settings
+// Ensure uploads directory exists
+const uploadDir = "uploads/";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");  // Store uploaded files in the 'uploads' directory
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));  // Unique filename with original extension
+    cb(null, Date.now() + path.extname(file.originalname));
   }
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024  // Limit file size to 10MB
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|gif/;
