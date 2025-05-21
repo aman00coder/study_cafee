@@ -20,8 +20,8 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
 
       //Comapnay Routes
       .post("/add-company",authMiddleware(["user"]), upload.single('companyLogo'),userController.addCompany)
-      .get("/comapnyById/:id",authMiddleware(["user"]), userController.getCompanyById)
-      .get("/comapnyById/:userId",authMiddleware(["user"]), userController.getCompanyByUserId)
+      .get("/comapnyById/:id",authMiddleware(["user","admin"]), userController.getCompanyById)
+      .get("/comapnyById/:userId",authMiddleware(["user","admin"]), userController.getCompanyByUserId)
 
       .patch("/updateUser",authMiddleware(["user"]), upload.single("profilePhoto"), userController.updateUserProfile)
       .get("/allDesignation", userController.allDesignation)

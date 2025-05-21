@@ -168,6 +168,10 @@ routes.loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
+        const profile = await CompanyProfile.findOne({ userId: user._id });
+
+        const isFilled = profile?.isFilled || false;
+
         const token = jwt.sign(
             { _id: user._id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
@@ -180,7 +184,8 @@ routes.loginUser = async (req, res) => {
             user: {
                 _id: user._id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                isFilled
             }
         });
     } catch (error) {
