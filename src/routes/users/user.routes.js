@@ -2,6 +2,10 @@ import express from "express"
 import userController from "../../controllers/users/user.controller.js"
 import upload from "../../middleware/multer.middleware.js"
 import purchaseController from "../../controllers/plans/purchase.controller.js"
+import { 
+      getInvoice, 
+      getUserInvoices
+    } from "../../controllers/plans/invoice.controller.js";
 
 import authMiddleware from "../../middleware/auth.middleware.js"
 
@@ -39,4 +43,8 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .get("/purchases", authMiddleware(["user"]), purchaseController.userPurchases)
 
 
+            //Invoices
+       // Get all invoices for logged-in user
+       .get("/allInvoices", authMiddleware(["user"]), getUserInvoices)
+       .get("/invoice/:id", authMiddleware(["admin","user"]), getInvoice)
 export default router;

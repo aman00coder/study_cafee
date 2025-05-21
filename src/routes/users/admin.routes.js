@@ -3,6 +3,9 @@ import authMiddleware from "../../middleware/auth.middleware.js"
 import adminController from "../../controllers/users/admin.controller.js"
 import upload from "../../middleware/multer.middleware.js"
 import couponController from "../../controllers/plans/coupon.controller.js"
+import { 
+      getAllInvoices
+    } from "../../controllers/plans/invoice.controller.js";
 
 const router = express.Router()
 
@@ -55,5 +58,9 @@ router.post("/registerAdmin", adminController.registerAdmin)
       //Plan Purchase
       .get("/allPayment", authMiddleware(["admin"]), adminController.allPayment)
       .get("/allPurchase", authMiddleware(["admin"]), adminController.allPurchase)
+
+
+      //Invoice
+      .get("/allInvoices", authMiddleware(["admin"]), getAllInvoices); 
 
 export default router;

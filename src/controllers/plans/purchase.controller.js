@@ -4,6 +4,7 @@ import PaymentOrder from "../../models/paymentOrder.model.js";
 import Coupon from "../../models/coupon.model.js";
 import razorpay from "../../services/razorpay.js";
 import crypto from "crypto";
+import { createInvoiceFromPaymentOrder} from "../plans/invoice.controller.js"
 
 const routes = {};
 
@@ -19,6 +20,16 @@ routes.createOrder = async (req, res) => {
 
     const plan = await Plan.findById(planId);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
+
+    const existing = await PlanPurchase.findOne({
+      user: userId,
+      plan: planId,
+      endDate: { $gte: new Date() } // Still active
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: "You already have an active subscription for this plan." });
+    }
 
     let basePrice = plan.billingOptions[selectedCycle];
     let discount = 0;
@@ -95,10 +106,14 @@ routes.createOrder = async (req, res) => {
       message: "Order created",
       order: razorpayOrder,
       planName: plan.name,
+      basePrice, // added
+      finalAmount, // added (before paise conversion)
       amount: finalAmountInPaise,
       originalPrice: basePrice,
       discount,
       taxAmount,
+      taxPercentage: plan.taxPercentage, // added
+      isTaxInclusive: plan.taxType === "inclusive", // added
       couponApplied: appliedCoupon ? appliedCoupon.code : null,
       taxType: plan.taxType
     });
@@ -135,15 +150,15 @@ routes.purchasePlan = async (req, res) => {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
-    const existing = await PlanPurchase.findOne({
-      user: userId,
-      plan: paymentOrder.plan,
-      endDate: { $gte: new Date() } // active plan
-    });
+    // const existing = await PlanPurchase.findOne({
+    //   user: userId,
+    //   plan: paymentOrder.plan,
+    //   endDate: { $gte: new Date() } // active plan
+    // });
     
-    if (existing) {
-      return res.status(400).json({ message: "Plan already active for this user" });
-    }
+    // if (existing) {
+    //   return res.status(400).json({ message: "Plan already active for this user" });
+    // }
 
     // Update payment status to paid
     paymentOrder.razorpayPaymentId = payment_id;
@@ -169,17 +184,27 @@ routes.purchasePlan = async (req, res) => {
 
     await newPurchase.save();
 
-    // Add this AFTER saving the plan purchase
+    // Apply coupon if exists
     if (paymentOrder.appliedCoupon) {
-    await Coupon.findOneAndUpdate(
-      { code: paymentOrder.appliedCoupon },
-      { $inc: { usedCount: 1 } }
-    );
-  }
+      await Coupon.findOneAndUpdate(
+        { code: paymentOrder.appliedCoupon },
+        { $inc: { usedCount: 1 } }
+      );
+    }
+
+    // Create invoice after successful payment and plan purchase
+    const invoice = await createInvoiceFromPaymentOrder(paymentOrder._id);
 
     res.status(201).json({
       message: "Payment verified and plan purchased",
-      data: newPurchase,
+      data: {
+        purchase: newPurchase,
+        invoice: {
+          id: invoice._id,
+          number: invoice.invoiceNumber,
+          pdfUrl: invoice.invoiceUrl
+        }
+      },
     });
   } catch (error) {
     console.error("Payment verification error:", error);

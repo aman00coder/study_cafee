@@ -573,6 +573,7 @@ routes.downloadPoster = async (req, res) => {
         endDate: { $gte: today },
       }).populate('plan');
   
+      console.log(activePlan);
       if (!activePlan || !activePlan.plan) {
         return res.status(403).json({ message: 'No active plan found or plan not yet started' });
       }
