@@ -22,106 +22,110 @@ const generateInvoiceNumber = () => {
 };
 
 // Helper function to generate PDF invoice
-const generateInvoicePDF = async (invoice, user, plan) => {
-  return new Promise(async (resolve, reject) => {
+export const generateInvoicePDF = (invoice, user, plan, company) => {
+  return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      const tempFilePath = path.join(__dirname, `../../temp/invoice_${invoice.invoiceNumber}.pdf`);
+      const tempDir = path.join(__dirname, '../../temp');
+      const tempFilePath = path.join(tempDir, `invoice_${invoice.invoiceNumber}.pdf`);
 
-      if (!fs.existsSync(path.join(__dirname, '../../temp'))) {
-        fs.mkdirSync(path.join(__dirname, '../../temp'));
-      }
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
       const writeStream = fs.createWriteStream(tempFilePath);
       doc.pipe(writeStream);
 
-      const company = await CompanyProfile.findOne({ userId: user._id });
       const invoiceDate = new Date(invoice.createdAt).toLocaleDateString();
+      const hsnCode = "9983";
+      const taxableValue = invoice.basePrice;
+      const taxAmount = invoice.taxAmount;
+      const totalAmount = invoice.finalAmount;
+      const taxRate = invoice.taxPercentage || 0;
 
       // Header
-      doc.fontSize(20).text("Tax Invoice", { align: "center" });
-      doc.moveDown(1);
+      doc.fontSize(16).text("Tax Invoice", { align: "center" }).moveDown();
 
-      // Seller Info
+      // From (Seller)
       doc.fontSize(10).text("Studycafe Private Limited");
       doc.text("1003, Modi Tower 98, Nehruplace, Delhi 110019");
       doc.text("GSTIN/UIN: 07ABDCS9065J1ZV");
       doc.text("State Name: Delhi, Code: 07");
-      doc.text("Email: contact@studycafe.in");
-      doc.moveDown();
+      doc.text("E-Mail: contact@studycafe.in").moveDown();
 
-      // Buyer Info
-      doc.font('Helvetica-Bold').text("Buyer (Bill to):").font('Helvetica');
-      doc.text(`${company.companyName}`);
+      // To (Buyer)
+      doc.font('Helvetica-Bold').text("Consignee (Ship to)").font('Helvetica');
+      doc.text(company.companyName);
+      doc.text(company.companyAddress);
+      doc.text(`GSTIN/UIN: ${company.gstin || 'N/A'}`);
+      doc.text("State Name: Maharashtra, Code: 27").moveDown();
+
+      doc.font('Helvetica-Bold').text("Buyer (Bill to)").font('Helvetica');
+      doc.text(company.companyName);
       doc.text(company.companyAddress);
       doc.text(`GSTIN/UIN: ${company.gstin || 'N/A'}`);
       doc.text("State Name: Maharashtra, Code: 27");
-      doc.text(`Place of Supply: Maharashtra`);
-      doc.moveDown();
+      doc.text("Place of Supply: Maharashtra").moveDown();
 
-      // Invoice Meta Info
+      // Invoice Details
       doc.text(`Invoice No.: ${invoice.invoiceNumber}`);
-      doc.text(`Date: ${invoiceDate}`);
-      doc.moveDown();
+      doc.text(`Date: ${invoiceDate}`).moveDown();
 
-      // Table headers
+      // Table Headers
       doc.font('Helvetica-Bold');
       doc.text("Sl", 50).text("Particulars", 80).text("HSN/SAC", 250)
-         .text("Taxable Value", 320).text("IGST", 400).text("Amount", 470);
+        .text("Amount", 350, { width: 100, align: "right" });
       doc.moveDown();
 
-      // Table content
-      const hsnCode = "9983";
-      const taxRate = invoice.taxPercentage || 0;
-      const taxableValue = invoice.basePrice;
-      const taxAmt = invoice.taxAmount;
-      const totalAmt = invoice.finalAmount;
-
+      // Table Item
       doc.font('Helvetica');
       doc.text("1", 50)
-        .text(`${plan.name} (${invoice.selectedCycle})`, 80)
+        .text(`${plan.name} (${invoice.selectedCycle} subscription)`, 80)
         .text(hsnCode, 250)
-        .text(`₹${taxableValue.toFixed(2)}`, 320)
-        .text(`₹${taxAmt.toFixed(2)} (${taxRate}%)`, 400)
-        .text(`₹${totalAmt.toFixed(2)}`, 470);
-      doc.moveDown(2);
-
-      // Total Summary
-      doc.text(`Total: ₹${totalAmt.toFixed(2)}`, { align: "right" });
-      doc.text(`Amount in Words: INR ${numWords(totalAmt)} Only`, { align: "right" });
+        .text(`₹${taxableValue.toFixed(2)}`, 350, { width: 100, align: "right" });
       doc.moveDown();
+
+      // Tax row
+      doc.text("IGST Outward", 250).text(`₹${taxAmount.toFixed(2)}`, 350, { width: 100, align: "right" }).moveDown();
+
+      // Total
+      doc.font('Helvetica-Bold').text(`Total ₹${totalAmount.toFixed(2)}`, { align: "right" });
+      doc.moveDown();
+
+      // Amount in words
+      doc.font('Helvetica').text(`Amount Chargeable (in words):`, { align: "left" });
+      doc.font('Helvetica-Bold').text(`INR ${numWords(totalAmount)} Only`).moveDown();
 
       // Tax Summary
-      doc.text("HSN/SAC Summary", { underline: true });
-      doc.text(`HSN/SAC: ${hsnCode}`);
+      doc.font('Helvetica-Bold').text("HSN/SAC Summary").moveDown(0.5);
+      doc.font('Helvetica').text(`HSN/SAC: ${hsnCode}`);
       doc.text(`Taxable Value: ₹${taxableValue.toFixed(2)}`);
-      doc.text(`Integrated Tax: ₹${taxAmt.toFixed(2)} (${taxRate}%)`);
-      doc.text(`Total: ₹${totalAmt.toFixed(2)}`);
-      doc.text(`Tax Amount in Words: INR ${numWords(taxAmt)} Only`);
-      doc.moveDown();
+      doc.text(`Integrated Tax: ₹${taxAmount.toFixed(2)} @ ${taxRate}%`);
+      doc.text(`Total: ₹${totalAmount.toFixed(2)}`);
+      doc.text(`Tax Amount in Words: INR ${numWords(taxAmount)} Only`).moveDown();
+
+      // PAN
+      doc.text(`Company's PAN: ABDCS9065J`).moveDown();
 
       // Bank Details
-      doc.text("Company's Bank Details", { underline: true });
+      doc.font('Helvetica-Bold').text("Company's Bank Details").font('Helvetica');
       doc.text("Account Holder: Studycafe Private Limited");
-      doc.text("Bank Name: ICICI Bank");
+      doc.text("Bank Name: ICICI BANK");
       doc.text("Account No.: 418005000915");
-      doc.text("Branch & IFSC: NEHRUPLACE DELHI & ICIC0004180");
+      doc.text("Branch & IFSC: NEHRUPLACE DELHI & ICIC0004180").moveDown(2);
 
       // Footer
-      doc.moveDown(2);
       doc.text("for Studycafe Private Limited", { align: "right" });
       doc.text("Authorised Signatory", { align: "right" });
-      doc.text("This is a Computer Generated Invoice", { align: "center" });
+      doc.moveDown();
+      doc.fontSize(9).text("This is a Computer Generated Invoice", { align: "center" });
 
       doc.end();
-      writeStream.on('finish', () => resolve(tempFilePath));
-      writeStream.on('error', reject);
+      writeStream.on("finish", () => resolve(tempFilePath));
+      writeStream.on("error", reject);
     } catch (err) {
       reject(err);
     }
   });
 };
-
 
 // Create invoice from payment order (to be called after successful payment)
 export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
@@ -144,32 +148,37 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       throw new Error('User not found');
     }
 
+    const company = await CompanyProfile.findOne({ userId: user._id });
+if (!company) {
+  throw new Error('Company profile not found for user');
+}
+
     // Check if invoice already exists for this payment order
     const existingInvoice = await Invoice.findOne({ paymentOrder: paymentOrderId });
     if (existingInvoice) {
       return existingInvoice;
     }
 
-    const invoiceData = {
-      user: paymentOrder.user,
-      plan: paymentOrder.plan,
-      paymentOrder: paymentOrder._id,
-      invoiceNumber: generateInvoiceNumber(),
-      selectedCycle: paymentOrder.selectedCycle,
-      basePrice: paymentOrder.selectedPrice,
-      discount: paymentOrder.discount || 0,
-      taxAmount: paymentOrder.taxAmount || 0,
-      finalAmount: paymentOrder.amount / 100, // Convert from paise to rupees
-      taxType: paymentOrder.taxType,
-      taxPercentage: paymentOrder.taxPercentage,
-      coupon: paymentOrder.appliedCoupon || null
-    };
+const invoiceData = {
+  user: paymentOrder.user,
+  plan: paymentOrder.plan,
+  paymentOrder: paymentOrder._id,
+  invoiceNumber: generateInvoiceNumber(),
+  selectedCycle: paymentOrder.selectedCycle,
+  basePrice: paymentOrder.selectedPrice,
+  discount: paymentOrder.discount || 0,
+  taxAmount: paymentOrder.taxAmount || 0,
+  finalAmount: paymentOrder.amount / 100,
+  taxType: paymentOrder.taxType,
+  taxPercentage: paymentOrder.taxPercentage,
+  coupon: paymentOrder.appliedCoupon || null
+};
 
     const invoice = new Invoice(invoiceData);
     await invoice.save();
 
     // Generate PDF
-    const pdfPath = await generateInvoicePDF(invoice, user, plan);
+    const pdfPath = await generateInvoicePDF(invoice, user, plan, company);
     const uploadResult = await uploadToCloudinary(pdfPath, 'invoices');
     
     // Update invoice with PDF URL
