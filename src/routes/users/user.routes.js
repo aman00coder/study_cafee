@@ -37,6 +37,7 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
 
       //Review
       .post("/addReview", authMiddleware(["user"]), userController.addTestimonoal)
+      .get("/reviewById/:id", authMiddleware(["user"]), userController.getTestimonialById)
       .patch("/updateReview/:testimonialId", authMiddleware(["user"]), userController.updateTestimonial)
       .delete("/deleteReview/:testimonialId", authMiddleware(["user"]), userController.deleteTestimonial)
 

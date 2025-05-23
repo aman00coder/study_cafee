@@ -586,6 +586,31 @@ routes.addTestimonoal = async (req, res) => {
     }
 }
 
+routes.getTestimonialById = async (req,res) =>{
+    try {
+
+        const userId = req.params.id;
+        
+        const testimonial = await Testimonial.find({ createdBy: userId })
+        .populate({
+        path: "createdBy",
+        select: "profilePhoto firstName lastName designation email",
+        populate: {
+          path: "designation",
+          select: "name"
+        }})
+
+        if (!testimonial) {
+            return res.status(404).json({ message: "Testimonial not found" });
+        }
+
+        res.status(200).json(testimonial);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server error" });
+    }
+}
+
 routes.updateTestimonial = async (req, res) => {
     try {
         const { testimonialId } = req.params;
