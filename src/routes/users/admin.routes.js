@@ -61,6 +61,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       //Plan Purchase
       .get("/allPayment", authMiddleware(["admin"]), adminController.allPayment)
       .get("/allPurchase", authMiddleware(["admin"]), adminController.allPurchase)
+      .get("/purchase/:purchaseId", authMiddleware(["admin"]), adminController.purchaseById)
 
 
       //Invoice

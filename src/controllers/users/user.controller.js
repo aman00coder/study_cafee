@@ -386,7 +386,8 @@ routes.getUserProfile = async (req, res) => {
         const userId = req.user._id;
 
         // Fetch user data
-        const user = await User.findById(userId).select('-password'); // Exclude password
+        const user = await User.findById(userId).select('-password')
+        .populate("designation","name"); // Exclude password
         if (!user) {
             return res.status(404).json({ 
                 success: false,

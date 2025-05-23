@@ -1167,4 +1167,26 @@ routes.allPurchase = async (req, res) => {
   }
 };
 
+routes.purchaseById = async (req, res) => {
+  try {
+    const { purchaseId } = req.params;
+
+    if (!purchaseId)
+      return res.status(400).json({ message: "Purchase ID is required" });
+
+    const purchase = await PlanPurchase.findById(purchaseId)
+      .populate("user", "firstName lastName email")
+      .populate("plan", "name");
+
+    if (!purchase) {
+      return res.status(404).json({ message: "Purchase not found" });
+    }
+
+    res.status(200).json({ message: "Purchase fetched", purchase });
+  } catch (err) {
+    console.error("Admin Purchase Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export default routes;
