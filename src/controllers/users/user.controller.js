@@ -568,6 +568,15 @@ routes.addTestimonoal = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // Check if the user has already submitted a testimonial
+        const existingTestimonial = await Testimonial.findOne({ createdBy: userId });
+        if (existingTestimonial) {
+            return res.status(400).json({
+                success: false,
+                message: "You have already submitted a testimonial"
+            });
+        }
+
         const testimonial = new Testimonial({
             createdBy: userId,
             subject,
