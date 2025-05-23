@@ -324,7 +324,7 @@ routes.addCompany = async (req, res) => {
 
 routes.getCompanyByUserId = async (req, res) => {
     try {
-        const company = await CompanyProfile.findOne({ userId: req.params.userId })
+        const company = await CompanyProfile.findOne({ userId: req.user._id })
             .populate('userId', 'firstName lastName email');
         
         if (!company) {
