@@ -2,6 +2,7 @@ import Invoice from "../../models/invoice.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
 import Plan from "../../models/plan.model.js";
 import User from "../../models/user.model.js";
+import CompanyProfile from "../../models/companyProfile.js"
 import { uploadToCloudinary } from "../../services/cloudinary.js"
 import PDFDocument from "pdfkit";
 import fs from "fs";
@@ -20,8 +21,17 @@ const generateInvoiceNumber = () => {
   return `INV-${year}${month}-${randomNum}`;
 };
 
-// Helper function to generate PDF invoice
-const generateInvoicePDF = async (invoice, user, plan) => {
+// Helper function to format currency
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2
+  }).format(amount).replace('₹', '₹ ');
+};
+
+// Updated helper function to generate PDF invoice
+const generateInvoicePDF = async (invoice, user, plan, companyProfile) => {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -35,55 +45,139 @@ const generateInvoicePDF = async (invoice, user, plan) => {
       const writeStream = fs.createWriteStream(tempFilePath);
       doc.pipe(writeStream);
 
-      // Header
-      doc.fontSize(20).text('INVOICE', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(10).text(`Invoice #: ${invoice.invoiceNumber}`, { align: 'right' });
-      doc.text(`Date: ${new Date(invoice.createdAt).toLocaleDateString()}`, { align: 'right' });
-      doc.moveDown();
+      // Set up colors
+      const primaryColor = '#3498db';
+      const secondaryColor = '#2c3e50';
+      const lightColor = '#f8f9fa';
+      const darkColor = '#343a40';
 
-      // From - To sections
-      doc.fontSize(12).text('From:', { continued: true }).font('Helvetica-Bold').text(' Study Cafe');
-      doc.font('Helvetica').text('support@studycafe.com');
-      doc.moveDown();
+      // Add header with logo and company info
+      doc.fillColor(secondaryColor)
+         .fontSize(16)
+         .font('Helvetica-Bold')
+         .text(companyProfile.companyName.toUpperCase(), 50, 50);
+      
+      doc.fontSize(10)
+         .text(companyProfile.companyAddress, 50, 70)
+         .text(`Phone: ${companyProfile.companyPhoneNumber} | Email: ${companyProfile.companyEmail}`, 50, 85)
+         .text(`Website: ${companyProfile.companyWebsite}`, 50, 100);
 
-      doc.fontSize(12).text('To:', { continued: true }).font('Helvetica-Bold').text(` ${user.firstName} ${user.lastName}`);
-      doc.font('Helvetica').text(user.email);
-      doc.moveDown();
+      // Add invoice title and details
+      doc.fontSize(20)
+         .fillColor(primaryColor)
+         .text('INVOICE', 400, 50, { align: 'right' });
+      
+      doc.fontSize(10)
+         .fillColor(darkColor)
+         .text(`Invoice #: ${invoice.invoiceNumber}`, 400, 80, { align: 'right' })
+         .text(`Date: ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}`, 400, 95, { align: 'right' })
+         .text(`Due Date: ${new Date(new Date(invoice.createdAt).setDate(new Date(invoice.createdAt).getDate() + 7)).toLocaleDateString('en-IN')}`, 400, 110, { align: 'right' });
 
-      // Invoice details
-      doc.fontSize(12).text(`Plan: ${plan.name} (${invoice.selectedCycle} subscription)`);
-      doc.moveDown();
+      // Add bill to section
+      doc.moveDown(3);
+      doc.fontSize(12)
+         .fillColor(secondaryColor)
+         .font('Helvetica-Bold')
+         .text('BILL TO:', 50, 150);
+      
+      doc.rect(50, 165, 250, 80).stroke('#e0e0e0');
+      doc.font('Helvetica')
+         .fillColor(darkColor)
+         .text(companyProfile.companyName, 60, 170)
+         .text(companyProfile.name, 60, 185)
+         .text(companyProfile.companyAddress, 60, 200)
+         .text(`Phone: ${companyProfile.companyPhoneNumber}`, 60, 215)
+         .text(`Email: ${companyProfile.companyEmail}`, 60, 230);
 
+      // Add invoice items table
+      doc.moveDown(5);
+      const tableTop = 280;
+      
       // Table header
-      doc.font('Helvetica-Bold');
-      doc.text('Description', 50, doc.y);
-      doc.text('Unit Price', 300, doc.y, { width: 100, align: 'right' });
-      doc.text('Amount', 400, doc.y, { width: 100, align: 'right' });
-      doc.moveDown();
+      doc.font('Helvetica-Bold')
+         .fontSize(10)
+         .fillColor(lightColor);
+      doc.rect(50, tableTop, 500, 20).fill(secondaryColor);
+      doc.text('Description', 60, tableTop + 5)
+         .text('Qty', 350, tableTop + 5, { width: 50, align: 'center' })
+         .text('Unit Price', 400, tableTop + 5, { width: 75, align: 'right' })
+         .text('Amount', 475, tableTop + 5, { width: 75, align: 'right' });
 
       // Table row
-      doc.font('Helvetica');
-      doc.text(plan.name, 50, doc.y);
-      doc.text(`₹${invoice.basePrice.toFixed(2)}`, 300, doc.y, { width: 100, align: 'right' });
-      doc.text(`₹${invoice.basePrice.toFixed(2)}`, 400, doc.y, { width: 100, align: 'right' });
-      doc.moveDown();
+      doc.font('Helvetica')
+         .fillColor(darkColor)
+         .text(plan.name, 60, tableTop + 30)
+         .text('1', 350, tableTop + 30, { width: 50, align: 'center' })
+         .text(formatCurrency(invoice.basePrice), 400, tableTop + 30, { width: 75, align: 'right' })
+         .text(formatCurrency(invoice.basePrice), 475, tableTop + 30, { width: 75, align: 'right' });
 
-      // Summary
-      doc.moveDown();
-      doc.text(`Subtotal: ₹${invoice.basePrice.toFixed(2)}`, { align: 'right' });
+      // Add summary section
+      const summaryTop = tableTop + 80;
+      doc.fontSize(10)
+         .text('Subtotal:', 400, summaryTop, { width: 75, align: 'right' })
+         .text(formatCurrency(invoice.basePrice), 475, summaryTop, { width: 75, align: 'right' });
+      
       if (invoice.discount > 0) {
-        doc.text(`Discount: -₹${invoice.discount.toFixed(2)}`, { align: 'right' });
+        doc.text('Discount:', 400, summaryTop + 20, { width: 75, align: 'right' })
+           .text(`-${formatCurrency(invoice.discount)}`, 475, summaryTop + 20, { width: 75, align: 'right' });
       }
+      
       if (invoice.taxAmount > 0) {
-        doc.text(`Tax (${invoice.taxPercentage}% ${invoice.taxType}): ₹${invoice.taxAmount.toFixed(2)}`, { align: 'right' });
+        doc.text(`Tax (${invoice.taxPercentage}% ${invoice.taxType}):`, 400, summaryTop + 40, { width: 75, align: 'right' })
+           .text(formatCurrency(invoice.taxAmount), 475, summaryTop + 40, { width: 75, align: 'right' });
       }
-      doc.font('Helvetica-Bold').text(`Total: ₹${invoice.finalAmount.toFixed(2)}`, { align: 'right' });
-      doc.moveDown(2);
+      
+      doc.rect(400, summaryTop + 60, 150, 1).fill('#cccccc');
+      
+      doc.font('Helvetica-Bold')
+         .text('Total Amount:', 400, summaryTop + 70, { width: 75, align: 'right' })
+         .text(formatCurrency(invoice.finalAmount), 475, summaryTop + 70, { width: 75, align: 'right' });
 
-      // Footer
-      doc.font('Helvetica').text('Thank you for your business!', { align: 'center' });
-      doc.text('Terms: Payment due upon receipt. Late payments may be subject to fees.', { align: 'center' });
+      // Add payment information
+      doc.moveDown(6);
+      doc.font('Helvetica-Bold')
+         .fillColor(secondaryColor)
+         .text('PAYMENT INFORMATION', 50, doc.y);
+      
+      doc.rect(50, doc.y + 5, 500, 1).fill(primaryColor);
+      
+      doc.font('Helvetica')
+         .fillColor(darkColor)
+         .text(`Payment Method: ${invoice.paymentOrder?.paymentMethod || 'Online Payment'}`, 50, doc.y + 15)
+         .text(`Payment Date: ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}`, 50, doc.y + 30)
+         .text(`Transaction ID: ${invoice.paymentOrder?.razorpayPaymentId || 'N/A'}`, 50, doc.y + 45);
+
+      // Add terms and conditions
+      doc.moveDown(3);
+      doc.font('Helvetica-Bold')
+         .fillColor(secondaryColor)
+         .text('TERMS & CONDITIONS', 50, doc.y);
+      
+      doc.rect(50, doc.y + 5, 500, 1).fill(primaryColor);
+      
+      doc.font('Helvetica')
+         .fontSize(9)
+         .fillColor(darkColor)
+         .text('1. Payment is due within 7 days of invoice date.', 50, doc.y + 15)
+         .text('2. Please include the invoice number in your payment reference.', 50, doc.y + 30)
+         .text('3. Late payments are subject to a 1.5% monthly interest charge.', 50, doc.y + 45)
+         .text('4. All amounts are in Indian Rupees (INR).', 50, doc.y + 60);
+
+      // Add footer
+      doc.moveDown(4);
+      doc.font('Helvetica-Oblique')
+         .fontSize(10)
+         .fillColor(primaryColor)
+         .text('Thank you for your business!', { align: 'center' });
+      
+      doc.moveDown(0.5);
+      doc.font('Helvetica')
+         .fontSize(8)
+         .fillColor('#777777')
+         .text(companyProfile.companyName, { align: 'center' });
+
+      // Add page border
+      doc.rect(30, 30, 540, 800).stroke('#f0f0f0');
 
       doc.end();
 
@@ -95,7 +189,7 @@ const generateInvoicePDF = async (invoice, user, plan) => {
   });
 };
 
-// Create invoice from payment order (to be called after successful payment)
+// Updated createInvoiceFromPaymentOrder function
 export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
   try {
     const paymentOrder = await PaymentOrder.findById(paymentOrderId)
@@ -116,7 +210,14 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       throw new Error('User not found');
     }
 
-    // Check if invoice already exists for this payment order
+    // Get company profile
+    const companyProfile = await CompanyProfile.findOne({ userId: paymentOrder.user });
+    console.log('Found company profile:', companyProfile)
+    if (!companyProfile) {
+      throw new Error('Company profile not found');
+    }
+
+    // Check if invoice already exists
     const existingInvoice = await Invoice.findOne({ paymentOrder: paymentOrderId });
     if (existingInvoice) {
       return existingInvoice;
@@ -131,7 +232,7 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       basePrice: paymentOrder.selectedPrice,
       discount: paymentOrder.discount || 0,
       taxAmount: paymentOrder.taxAmount || 0,
-      finalAmount: paymentOrder.amount / 100, // Convert from paise to rupees
+      finalAmount: paymentOrder.amount / 100,
       taxType: paymentOrder.taxType,
       taxPercentage: paymentOrder.taxPercentage,
       coupon: paymentOrder.appliedCoupon || null
@@ -140,8 +241,8 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
     const invoice = new Invoice(invoiceData);
     await invoice.save();
 
-    // Generate PDF
-    const pdfPath = await generateInvoicePDF(invoice, user, plan);
+    // Generate PDF with company profile
+    const pdfPath = await generateInvoicePDF(invoice, user, plan, companyProfile);
     const uploadResult = await uploadToCloudinary(pdfPath, 'invoices');
     
     // Update invoice with PDF URL
@@ -201,7 +302,7 @@ export const getUserInvoices = async (req, res) => {
 // Admin - Get all invoices
 export const getAllInvoices = async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
@@ -233,3 +334,48 @@ export const getAllInvoices = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+
+// Temporary test code - remove after testing
+// if (process.env.NODE_ENV !== 'production') {
+//   (async () => {
+//     const testInvoice = {
+//       invoiceNumber: generateInvoiceNumber(),
+//       createdAt: new Date(),
+//       basePrice: 999,
+//       discount: 100,
+//       taxAmount: 180,
+//       finalAmount: 1079,
+//       taxPercentage: 18,
+//       taxType: "GST",
+//       selectedCycle: "Monthly",
+//       paymentOrder: { razorpayPaymentId: "pay_test123" }
+//     };
+    
+//     const testUser = {
+//       _id: "test_user_id", // Add this
+//       firstName: "Test",
+//       lastName: "User",
+//       email: "test@example.com"
+//     };
+    
+//     const testPlan = {
+//       name: "Test Plan"
+//     };
+
+//     // Add test company profile
+//     const testCompanyProfile = {
+//       companyName: "Test Company",
+//       name: "Test Contact",
+//       companyAddress: "123 Test St, Test City",
+//       companyPhoneNumber: "+911234567890",
+//       companyEmail: "test@company.com",
+//       companyWebsite: "www.testcompany.com",
+//       userId: testUser._id
+//     };
+    
+//     console.log("Generating test PDF...");
+//     const path = await generateInvoicePDF(testInvoice, testUser, testPlan, testCompanyProfile);
+//     console.log(`Test PDF generated at: ${path}`);
+//   })();
+// }
