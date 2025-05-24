@@ -71,7 +71,6 @@ const generateInvoicePDF = async (invoice, user, plan, companyProfile) => {
          .fillColor(darkColor)
          .text(`Invoice #: ${invoice.invoiceNumber}`, 400, 80, { align: 'right' })
          .text(`Date: ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}`, 400, 95, { align: 'right' })
-         .text(`Due Date: ${new Date(new Date(invoice.createdAt).setDate(new Date(invoice.createdAt).getDate() + 7)).toLocaleDateString('en-IN')}`, 400, 110, { align: 'right' });
 
       // Add bill to section
       doc.moveDown(3);
@@ -149,22 +148,22 @@ const generateInvoicePDF = async (invoice, user, plan, companyProfile) => {
 
       // Add terms and conditions
       doc.moveDown(3);
-      doc.font('Helvetica-Bold')
-         .fillColor(secondaryColor)
-         .text('TERMS & CONDITIONS', 50, doc.y);
+      // doc.font('Helvetica-Bold')
+      //    .fillColor(secondaryColor)
+      //    .text('TERMS & CONDITIONS', 50, doc.y);
       
-      doc.rect(50, doc.y + 5, 500, 1).fill(primaryColor);
+      // doc.rect(50, doc.y + 5, 500, 1).fill(primaryColor);
       
-      doc.font('Helvetica')
-         .fontSize(9)
-         .fillColor(darkColor)
-         .text('1. Payment is due within 7 days of invoice date.', 50, doc.y + 15)
-         .text('2. Please include the invoice number in your payment reference.', 50, doc.y + 30)
-         .text('3. Late payments are subject to a 1.5% monthly interest charge.', 50, doc.y + 45)
-         .text('4. All amounts are in Indian Rupees (INR).', 50, doc.y + 60);
+      // doc.font('Helvetica')
+      //    .fontSize(9)
+      //    .fillColor(darkColor)
+      //    .text('1. Payment is due within 7 days of invoice date.', 50, doc.y + 15)
+      //    .text('2. Please include the invoice number in your payment reference.', 50, doc.y + 30)
+      //    .text('3. Late payments are subject to a 1.5% monthly interest charge.', 50, doc.y + 45)
+      //    .text('4. All amounts are in Indian Rupees (INR).', 50, doc.y + 60);
 
-      // Add footer
-      doc.moveDown(4);
+      // // Add footer
+      // doc.moveDown(4);
       doc.font('Helvetica-Oblique')
          .fontSize(10)
          .fillColor(primaryColor)
@@ -342,7 +341,7 @@ export const getAllInvoices = async (req, res) => {
 //     const testInvoice = {
 //       invoiceNumber: generateInvoiceNumber(),
 //       createdAt: new Date(),
-//       basePrice: 999,
+//       basePrice: 100,
 //       discount: 100,
 //       taxAmount: 180,
 //       finalAmount: 1079,
