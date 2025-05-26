@@ -38,44 +38,44 @@ routes.createOrder = async (req, res) => {
     let finalAmount = 0;
 
     // ✅ Apply coupon
-    if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+// ✅ Apply coupon
+if (couponCode) {
+  const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
 
-      if (!coupon)
-        return res.status(400).json({ message: "Invalid coupon code" });
+  if (!coupon)
+    return res.status(400).json({ message: "Invalid coupon code" });
 
-      if (coupon.expiryDate < new Date())
-        return res.status(400).json({ message: "Coupon has expired" });
+  if (coupon.expiryDate < new Date())
+    return res.status(400).json({ message: "Coupon has expired" });
 
-      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit)
-        return res.status(400).json({ message: "Coupon usage limit exceeded" });
+  if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit)
+    return res.status(400).json({ message: "Coupon usage limit exceeded" });
 
-      // Calculate discount
-      if (coupon.discountType === 'flat') {
-        discount = coupon.discountValue;
-      } else if (coupon.discountType === 'percentage') {
-        discount = (basePrice * coupon.discountValue) / 100;
-      }
+  // Calculate discount with rounding
+  if (coupon.discountType === 'flat') {
+    discount = Math.round(coupon.discountValue * 100) / 100; // Round to 2 decimal places
+  } else if (coupon.discountType === 'percentage') {
+    discount = Math.round((basePrice * coupon.discountValue) / 100 * 100) / 100;
+  }
 
-      discount = Math.min(discount, basePrice); // Prevent negative pricing
-      appliedCoupon = coupon;
-    }
+  discount = Math.min(discount, basePrice); // Prevent negative pricing
+  appliedCoupon = coupon;
+}
 
     // ✅ Handle tax based on tax type
-    const discountedPrice = basePrice - discount;
+const discountedPrice = Math.round((basePrice - discount) * 100) / 100;
 
-    if (plan.taxType === "exclusive" && plan.taxPercentage > 0) {
-      taxAmount = (discountedPrice * plan.taxPercentage) / 100;
-      finalAmount = discountedPrice + taxAmount;
-    } else if (plan.taxType === "inclusive" && plan.taxPercentage > 0) {
-      // In inclusive, price includes tax already
-      taxAmount = (discountedPrice * plan.taxPercentage) / (100 + plan.taxPercentage);
-      finalAmount = discountedPrice; // No additional tax added
-    } else {
-      finalAmount = discountedPrice;
-    }
+if (plan.taxType === "exclusive" && plan.taxPercentage > 0) {
+  taxAmount = Math.round((discountedPrice * plan.taxPercentage) / 100 * 100) / 100;
+  finalAmount = discountedPrice + taxAmount;
+} else if (plan.taxType === "inclusive" && plan.taxPercentage > 0) {
+  taxAmount = Math.round((discountedPrice * plan.taxPercentage) / (100 + plan.taxPercentage) * 100) / 100;
+  finalAmount = discountedPrice;
+} else {
+  finalAmount = discountedPrice;
+}
 
-    const finalAmountInPaise = Math.round(finalAmount * 100); // Razorpay uses paise
+const finalAmountInPaise = Math.round(finalAmount * 100); // Final rounding to paise
 
     // ✅ Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
