@@ -719,46 +719,47 @@ routes.deleteTestimonial = async (req, res) => {
 
 
 routes.downloadPoster = async (req, res) => {
-    try {
-      const userId = req.user._id;
-      const { posterId } = req.params;
-  
-      const today = new Date();
-  
-      // ✅ Check for active plan and validate current date is within the valid range
-      const activePlan = await PlanPurchase.findOne({
-        user: userId,
-        startDate: { $lte: today },
-        endDate: { $gte: today },
-      }).populate('plan');
-  
-      console.log(activePlan);
-      if (!activePlan || !activePlan.plan) {
-        return res.status(403).json({ message: 'No active plan found or plan not yet started' });
-      }
-  
-      const allowedCategoryIds = activePlan.plan.categories.map(id => id.toString());
-  
-      const subCategories = await Category.find({ parentCategory: { $in: allowedCategoryIds } });
-      const allCategoryIds = [
-        ...allowedCategoryIds,
-        ...subCategories.map(sub => sub._id.toString()),
-      ];
-  
-      const poster = await Poster.findById(posterId);
-      if (!poster || !poster.category || !allCategoryIds.includes(poster.category.toString())) {
-        return res.status(403).json({ message: 'You are not allowed to download this poster' });
-      }
-  
-      res.status(200).json({ message: "Poster download allowed", imageUrl: poster.image });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
-    }
-  };
-  
-  
-  
+  try {
+    const userId = req.user._id;
+    const { posterId } = req.params;
 
-    
+    const today = new Date();
+
+    // Step 1: Check for active plan
+    const activePlan = await PlanPurchase.findOne({
+      user: userId,
+      startDate: { $lte: today },
+      endDate: { $gte: today },
+    }).populate('plan');
+
+    if (!activePlan || !activePlan.plan) {
+      return res.status(200).json({ allowed: false });
+    }
+
+    // Step 2: Get categories from plan
+    const allowedCategoryIds = activePlan.plan.categories.map(id => id.toString());
+
+    // Step 3: Include sub-categories under allowed categories
+    const subCategories = await Category.find({ parentCategory: { $in: allowedCategoryIds } });
+    const allCategoryIds = [
+      ...allowedCategoryIds,
+      ...subCategories.map(sub => sub._id.toString()),
+    ];
+
+    // Step 4: Get poster and check if category is allowed
+    const poster = await Poster.findById(posterId);
+    if (!poster || !poster.category || !allCategoryIds.includes(poster.category.toString())) {
+      return res.status(200).json({ allowed: false });
+    }
+
+    // ✅ Poster is allowed
+    return res.status(200).json({ allowed: true });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+     
 export default routes;
