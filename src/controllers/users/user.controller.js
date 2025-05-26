@@ -691,23 +691,32 @@ routes.deleteTestimonial = async (req, res) => {
         const { testimonialId } = req.params;
         const userId = req.user._id;
 
-        if (Testimonial.createdBy.toString() !== userId.toString()) {
-            return res.status(403).json({ 
+        // Fetch the testimonial first
+        const testimonial = await Testimonial.findById(testimonialId);
+
+        if (!testimonial) {
+            return res.status(404).json({ message: "Testimonial not found" });
+        }
+
+        // Check if the current user is the creator
+        if (testimonial.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({
                 success: false,
-                message: "Unauthorized: You can only delete your own testimonials" 
+                message: "Unauthorized: You can only delete your own testimonials"
             });
         }
 
-        const testimonalDel = await Testimonial.findByIdAndDelete(testimonialId);
-        if (!testimonalDel) return res.status(404).json({ message: "Testimonial not found" });
+        // Proceed to delete
+        await Testimonial.findByIdAndDelete(testimonialId);
 
         return res.status(200).json({ message: "Testimonial deleted successfully" });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+        res.status(500).json({ message: "Internal Server Error" });
     }
-}
+};
+
 
 routes.downloadPoster = async (req, res) => {
     try {
