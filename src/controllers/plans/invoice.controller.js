@@ -195,52 +195,52 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       .populate('plan')
       .populate('user');
 
-    if (!paymentOrder) {
-      throw new Error('Payment order not found');
-    }
-
-    const plan = await Plan.findById(paymentOrder.plan);
-    if (!plan) {
-      throw new Error('Plan not found');
-    }
-
-    const user = await User.findById(paymentOrder.user);
-    if (!user) {
-      throw new Error('User not found');
-    }
+    if (!paymentOrder) throw new Error('Payment order not found');
+    const { plan, user } = paymentOrder;
 
     // Get company profile
     const companyProfile = await CompanyProfile.findOne({ userId: paymentOrder.user });
-    if (!companyProfile) {
-      throw new Error('Company profile not found');
-    }
+    if (!companyProfile) throw new Error('Company profile not found');
 
     // Check if invoice already exists
     const existingInvoice = await Invoice.findOne({ paymentOrder: paymentOrderId });
-    if (existingInvoice) {
-      return existingInvoice;
+    if (existingInvoice) return existingInvoice;
+
+    const basePrice = paymentOrder.selectedPrice;
+
+    // Handle discount from coupon
+    let discount = 0;
+    let appliedCoupon = null;
+    if (paymentOrder.appliedCoupon) {
+      const coupon = await Coupon.findOne({ code: paymentOrder.appliedCoupon, isActive: true });
+      if (coupon) {
+        appliedCoupon = coupon.code;
+        if (coupon.discountType === 'flat') {
+          discount = coupon.discountValue;
+        } else if (coupon.discountType === 'percentage') {
+          discount = (basePrice * coupon.discountValue) / 100;
+        }
+        // Ensure discount doesn't exceed base price
+        discount = Math.min(discount, basePrice);
+      }
     }
 
-    // Calculate or fetch the necessary values from paymentOrder
-    const discount = paymentOrder.discount || 0;
-    const taxAmount = paymentOrder.taxAmount || 0;
-    const taxPercentage = paymentOrder.taxPercentage || 0;
-    const taxType = paymentOrder.taxType || 'exclusive';
-    const basePrice = paymentOrder.selectedPrice;
-    
-    // Calculate final amount (ensure this matches your business logic)
-    let finalAmount = basePrice;
-    
-    // Apply discount
-    if (discount > 0) {
-      finalAmount -= discount;
+    // Get tax info from plan
+    const taxType = plan.taxType || 'inclusive';
+    const taxPercentage = plan.taxPercentage || 0;
+
+    let taxableAmount = basePrice - discount;
+    let taxAmount = 0;
+    let finalAmount = 0;
+
+    if (taxType === 'exclusive') {
+      taxAmount = (taxableAmount * taxPercentage) / 100;
+      finalAmount = taxableAmount + taxAmount;
+    } else {
+      // Inclusive tax: finalAmount already includes tax
+      finalAmount = taxableAmount;
+      taxAmount = (finalAmount * taxPercentage) / (100 + taxPercentage);
     }
-    
-    // Apply tax if it's exclusive
-    if (taxType === 'exclusive' && taxAmount > 0) {
-      finalAmount += taxAmount;
-    }
-    // For inclusive tax, the tax is already included in the basePrice
 
     const invoiceData = {
       user: paymentOrder.user,
@@ -248,29 +248,27 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       paymentOrder: paymentOrder._id,
       invoiceNumber: generateInvoiceNumber(),
       selectedCycle: paymentOrder.selectedCycle,
-      basePrice: basePrice,
-      discount: discount,
-      taxAmount: taxAmount,
-      finalAmount: finalAmount,
-      taxType: taxType,
-      taxPercentage: taxPercentage,
-      coupon: paymentOrder.appliedCoupon || null
+      basePrice,
+      discount,
+      taxAmount,
+      finalAmount,
+      taxType,
+      taxPercentage,
+      coupon: appliedCoupon
     };
 
     const invoice = new Invoice(invoiceData);
     await invoice.save();
 
-    // Generate PDF with company profile
-    const pdfPath = await generateInvoicePDF(invoice, user, plan, companyProfile);
+    // Generate PDF with full details
+    const pdfPath = await generateInvoicePDF(invoice.toObject(), user, plan, companyProfile);
     const uploadResult = await uploadToCloudinary(pdfPath, 'invoices');
-    
-    // Update invoice with PDF URL
+
     invoice.invoiceUrl = uploadResult.secure_url;
     invoice.publicId = uploadResult.public_id;
     await invoice.save();
 
-    // Clean up temp file
-    fs.unlinkSync(pdfPath);
+    fs.unlinkSync(pdfPath); // Clean up temp PDF file
 
     return invoice;
   } catch (error) {
@@ -278,6 +276,7 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
     throw error;
   }
 };
+
 
 // Get invoice by ID
 export const getInvoice = async (req, res) => {
