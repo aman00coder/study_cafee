@@ -475,6 +475,7 @@ routes.getAllCategory = async (req, res) => {
 routes.postersByCategory = async (req, res) => {
     try {
         const { categoryId } = req.params;
+        const { timeFilter } = req.query; // 'today', 'nextDay', 'thisWeek', 'nextWeek', 'thisMonth', 'nextMonth'
 
         const categoryExists = await Category.findById(categoryId);
         if (!categoryExists) {
@@ -484,27 +485,90 @@ routes.postersByCategory = async (req, res) => {
             });
         }
 
-        const posters = await Poster.find({ 
+        // Base query
+        const query = { 
             category: categoryId,
             isActive: true
-        }).populate('category', 'name');
+        };
+
+        // Add date filtering based on timeFilter parameter
+        if (timeFilter) {
+            const now = new Date();
+            let startDate, endDate;
+
+            switch (timeFilter) {
+                case 'today':
+                    startDate = new Date(now.setHours(0, 0, 0, 0));
+                    endDate = new Date(now.setHours(23, 59, 59, 999));
+                    break;
+                case 'nextDay':
+                    startDate = new Date(now);
+                    startDate.setDate(now.getDate() + 1);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(startDate);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'thisWeek':
+                    startDate = new Date(now.setHours(0, 0, 0, 0));
+                    startDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'nextWeek':
+                    startDate = new Date(now);
+                    startDate.setDate(now.getDate() + (7 - now.getDay())); // Next Sunday
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6); // Next Saturday
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'nextMonth':
+                    startDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                    endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                default:
+                    // No date filtering for unknown values
+                    break;
+            }
+
+            if (startDate && endDate) {
+                query.createdAt = {
+                    $gte: startDate,
+                    $lte: endDate
+                };
+            }
+        }
+
+        const posters = await Poster.find(query).populate('category', 'name');
 
         if (posters.length === 0) {
             return res.status(200).json({
                 success: true,
                 message: 'No posters found for this category',
-                posters: []
+                posters: [],
+                timeFilter: timeFilter || 'all time'
             });
         }
 
         res.status(200).json({
             message: 'Posters retrieved successfully',
             count: posters.length,
+            timeFilter: timeFilter || 'all time',
             posters
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+        res.status(500).json({ 
+            success: false,
+            message: "Internal Server error" 
+        });
     }
 }
 
