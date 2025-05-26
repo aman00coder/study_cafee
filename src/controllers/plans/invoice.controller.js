@@ -211,7 +211,6 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
 
     // Get company profile
     const companyProfile = await CompanyProfile.findOne({ userId: paymentOrder.user });
-    console.log('Found company profile:', companyProfile)
     if (!companyProfile) {
       throw new Error('Company profile not found');
     }
@@ -222,18 +221,39 @@ export const createInvoiceFromPaymentOrder = async (paymentOrderId) => {
       return existingInvoice;
     }
 
+    // Calculate or fetch the necessary values from paymentOrder
+    const discount = paymentOrder.discount || 0;
+    const taxAmount = paymentOrder.taxAmount || 0;
+    const taxPercentage = paymentOrder.taxPercentage || 0;
+    const taxType = paymentOrder.taxType || 'exclusive';
+    const basePrice = paymentOrder.selectedPrice;
+    
+    // Calculate final amount (ensure this matches your business logic)
+    let finalAmount = basePrice;
+    
+    // Apply discount
+    if (discount > 0) {
+      finalAmount -= discount;
+    }
+    
+    // Apply tax if it's exclusive
+    if (taxType === 'exclusive' && taxAmount > 0) {
+      finalAmount += taxAmount;
+    }
+    // For inclusive tax, the tax is already included in the basePrice
+
     const invoiceData = {
       user: paymentOrder.user,
       plan: paymentOrder.plan,
       paymentOrder: paymentOrder._id,
       invoiceNumber: generateInvoiceNumber(),
       selectedCycle: paymentOrder.selectedCycle,
-      basePrice: paymentOrder.selectedPrice,
-      discount: paymentOrder.discount || 0,
-      taxAmount: paymentOrder.taxAmount || 0,
-      finalAmount: paymentOrder.amount / 100,
-      taxType: paymentOrder.taxType,
-      taxPercentage: paymentOrder.taxPercentage,
+      basePrice: basePrice,
+      discount: discount,
+      taxAmount: taxAmount,
+      finalAmount: finalAmount,
+      taxType: taxType,
+      taxPercentage: taxPercentage,
       coupon: paymentOrder.appliedCoupon || null
     };
 
@@ -336,45 +356,45 @@ export const getAllInvoices = async (req, res) => {
 
 
 // Temporary test code - remove after testing
-// if (process.env.NODE_ENV !== 'production') {
-//   (async () => {
-//     const testInvoice = {
-//       invoiceNumber: generateInvoiceNumber(),
-//       createdAt: new Date(),
-//       basePrice: 100,
-//       discount: 100,
-//       taxAmount: 180,
-//       finalAmount: 1079,
-//       taxPercentage: 18,
-//       taxType: "GST",
-//       selectedCycle: "Monthly",
-//       paymentOrder: { razorpayPaymentId: "pay_test123" }
-//     };
+if (process.env.NODE_ENV !== 'production') {
+  (async () => {
+    const testInvoice = {
+      invoiceNumber: generateInvoiceNumber(),
+      createdAt: new Date(),
+      basePrice: 100,
+      discount: 100,
+      taxAmount: 180,
+      finalAmount: 1079,
+      taxPercentage: 18,
+      taxType: "GST",
+      selectedCycle: "Monthly",
+      paymentOrder: { razorpayPaymentId: "pay_test123" }
+    };
     
-//     const testUser = {
-//       _id: "test_user_id", // Add this
-//       firstName: "Test",
-//       lastName: "User",
-//       email: "test@example.com"
-//     };
+    const testUser = {
+      _id: "test_user_id", // Add this
+      firstName: "Test",
+      lastName: "User",
+      email: "test@example.com"
+    };
     
-//     const testPlan = {
-//       name: "Test Plan"
-//     };
+    const testPlan = {
+      name: "Test Plan"
+    };
 
-//     // Add test company profile
-//     const testCompanyProfile = {
-//       companyName: "Test Company",
-//       name: "Test Contact",
-//       companyAddress: "123 Test St, Test City",
-//       companyPhoneNumber: "+911234567890",
-//       companyEmail: "test@company.com",
-//       companyWebsite: "www.testcompany.com",
-//       userId: testUser._id
-//     };
+    // Add test company profile
+    const testCompanyProfile = {
+      companyName: "Test Company",
+      name: "Test Contact",
+      companyAddress: "123 Test St, Test City",
+      companyPhoneNumber: "+911234567890",
+      companyEmail: "test@company.com",
+      companyWebsite: "www.testcompany.com",
+      userId: testUser._id
+    };
     
-//     console.log("Generating test PDF...");
-//     const path = await generateInvoicePDF(testInvoice, testUser, testPlan, testCompanyProfile);
-//     console.log(`Test PDF generated at: ${path}`);
-//   })();
-// }
+    console.log("Generating test PDF...");
+    const path = await generateInvoicePDF(testInvoice, testUser, testPlan, testCompanyProfile);
+    console.log(`Test PDF generated at: ${path}`);
+  })();
+}
