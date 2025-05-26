@@ -356,45 +356,45 @@ export const getAllInvoices = async (req, res) => {
 
 
 // Temporary test code - remove after testing
-if (process.env.NODE_ENV !== 'production') {
-  (async () => {
-    const testInvoice = {
-      invoiceNumber: generateInvoiceNumber(),
-      createdAt: new Date(),
-      basePrice: 100,
-      discount: 100,
-      taxAmount: 180,
-      finalAmount: 1079,
-      taxPercentage: 18,
-      taxType: "GST",
-      selectedCycle: "Monthly",
-      paymentOrder: { razorpayPaymentId: "pay_test123" }
-    };
+// if (process.env.NODE_ENV !== 'production') {
+//   (async () => {
+//     const testInvoice = {
+//       invoiceNumber: generateInvoiceNumber(),
+//       createdAt: new Date(),
+//       basePrice: 100,
+//       discount: 100,
+//       taxAmount: 180,
+//       finalAmount: 1079,
+//       taxPercentage: 18,
+//       taxType: "GST",
+//       selectedCycle: "Monthly",
+//       paymentOrder: { razorpayPaymentId: "pay_test123" }
+//     };
     
-    const testUser = {
-      _id: "test_user_id", // Add this
-      firstName: "Test",
-      lastName: "User",
-      email: "test@example.com"
-    };
+//     const testUser = {
+//       _id: "test_user_id", // Add this
+//       firstName: "Test",
+//       lastName: "User",
+//       email: "test@example.com"
+//     };
     
-    const testPlan = {
-      name: "Test Plan"
-    };
+//     const testPlan = {
+//       name: "Test Plan"
+//     };
 
-    // Add test company profile
-    const testCompanyProfile = {
-      companyName: "Test Company",
-      name: "Test Contact",
-      companyAddress: "123 Test St, Test City",
-      companyPhoneNumber: "+911234567890",
-      companyEmail: "test@company.com",
-      companyWebsite: "www.testcompany.com",
-      userId: testUser._id
-    };
+//     // Add test company profile
+//     const testCompanyProfile = {
+//       companyName: "Test Company",
+//       name: "Test Contact",
+//       companyAddress: "123 Test St, Test City",
+//       companyPhoneNumber: "+911234567890",
+//       companyEmail: "test@company.com",
+//       companyWebsite: "www.testcompany.com",
+//       userId: testUser._id
+//     };
     
-    console.log("Generating test PDF...");
-    const path = await generateInvoicePDF(testInvoice, testUser, testPlan, testCompanyProfile);
-    console.log(`Test PDF generated at: ${path}`);
-  })();
-}
+//     console.log("Generating test PDF...");
+//     const path = await generateInvoicePDF(testInvoice, testUser, testPlan, testCompanyProfile);
+//     console.log(`Test PDF generated at: ${path}`);
+//   })();
+// }
