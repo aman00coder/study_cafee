@@ -55,12 +55,12 @@ const generateInvoicePDF = async (invoice, user, plan, companyProfile) => {
       doc.fillColor(secondaryColor)
          .fontSize(16)
          .font('Helvetica-Bold')
-         .text(companyProfile.companyName.toUpperCase(), 50, 50);
+         .text("Studycafe Private Limited", 50, 50);
       
       doc.fontSize(10)
-         .text(companyProfile.companyAddress, 50, 70)
-         .text(`Phone: ${companyProfile.companyPhoneNumber} | Email: ${companyProfile.companyEmail}`, 50, 85)
-         .text(`Website: ${companyProfile.companyWebsite}`, 50, 100);
+         .text(" 1003, Modi Tower 98, Nehruplace, Delhi 110019", 50, 70)
+         .text(' GSTIN/UIN: 07ABDCS9065J1ZV | Email: contact@studycafe.in', 50, 85)
+         .text("Website: https://study-cafe-ymuj.onrender.com/", 50, 100);
 
       // Add invoice title and details
       doc.fontSize(20)
