@@ -2,6 +2,7 @@ import Invoice from "../../models/invoice.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
 import Plan from "../../models/plan.model.js";
 import User from "../../models/user.model.js";
+import Coupon from "../../models/coupon.model.js";
 import CompanyProfile from "../../models/companyProfile.js"
 import { uploadToCloudinary } from "../../services/cloudinary.js"
 import PDFDocument from "pdfkit";
