@@ -625,12 +625,12 @@ routes.deleteCategory = async (req, res) => {
 
 routes.addPosters = async (req, res) => {
   try {
-    const { title, description, category } = req.body;
+    const { title, description, category, eventDate } = req.body;
 
-    if (!title || !category) {
+    if (!title || !category || !eventDate) {
       return res
         .status(400)
-        .json({ message: "Title, description, and category are required" });
+        .json({ message: "Title, description, eventDate, and category are required" });
     }
 
     const existingCategory = await Category.findById(category);
@@ -660,6 +660,7 @@ routes.addPosters = async (req, res) => {
       image: posterImage,
       title,
       description,
+      eventDate,
       category,
     });
 

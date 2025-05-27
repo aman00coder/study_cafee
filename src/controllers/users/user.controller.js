@@ -486,12 +486,12 @@ routes.postersByCategory = async (req, res) => {
         }
 
         // Base query
-        const query = { 
+        const query = {
             category: categoryId,
             isActive: true
         };
 
-        // Add date filtering based on timeFilter parameter
+        // Add date filtering based on eventDate
         if (timeFilter) {
             const now = new Date();
             let startDate, endDate;
@@ -509,10 +509,11 @@ routes.postersByCategory = async (req, res) => {
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 case 'thisWeek':
-                    startDate = new Date(now.setHours(0, 0, 0, 0));
-                    startDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+                    startDate = new Date(now);
+                    startDate.setDate(now.getDate() - now.getDay()); // Sunday
+                    startDate.setHours(0, 0, 0, 0);
                     endDate = new Date(startDate);
-                    endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
+                    endDate.setDate(startDate.getDate() + 6); // Saturday
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 case 'nextWeek':
@@ -534,19 +535,20 @@ routes.postersByCategory = async (req, res) => {
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 default:
-                    // No date filtering for unknown values
                     break;
             }
 
             if (startDate && endDate) {
-                query.createdAt = {
+                query.eventDate = {
                     $gte: startDate,
                     $lte: endDate
                 };
             }
         }
 
-        const posters = await Poster.find(query).populate('category', 'name');
+        const posters = await Poster.find(query)
+            .populate('category', 'name')
+            .sort({ eventDate: 1 }); // Sort by event date ascending
 
         if (posters.length === 0) {
             return res.status(200).json({
@@ -558,6 +560,7 @@ routes.postersByCategory = async (req, res) => {
         }
 
         res.status(200).json({
+            success: true,
             message: 'Posters retrieved successfully',
             count: posters.length,
             timeFilter: timeFilter || 'all time',
@@ -565,12 +568,13 @@ routes.postersByCategory = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            message: "Internal Server error" 
+            message: "Internal Server Error"
         });
     }
-}
+};
+
 
 routes.postersById = async (req, res) => {
     try {
