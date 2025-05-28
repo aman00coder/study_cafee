@@ -260,17 +260,14 @@ routes.allDesignation = async (req, res) => {
 routes.addCompany = async (req, res) => {
     try {
       const {
-        name,
         companyName,
         companyAddress,
-        companyPhoneNumber,
-        companyEmail,
         companyWebsite
       } = req.body;
   
       const userId = req.user?._id || req.body.userId; // depending on your auth logic
   
-      if (!userId || !name || !companyName || !companyAddress || !companyPhoneNumber || !companyEmail || !companyWebsite || !req.file) {
+      if (!userId || !companyName || !companyAddress || !companyWebsite || !req.file) {
         return res.status(400).json({ message: "All fields including logo are required." });
       }
   
@@ -283,11 +280,8 @@ routes.addCompany = async (req, res) => {
       // Create company profile
       const newCompanyProfile = new CompanyProfile({
         userId,
-        name,
         companyName,
         companyAddress,
-        companyPhoneNumber,
-        companyEmail,
         companyWebsite,
         companyLogo: uploadResult.secure_url,
         isFilled: true
@@ -309,7 +303,7 @@ routes.addCompany = async (req, res) => {
   routes.getCompanyById = async (req, res) => {
     try {
         const company = await CompanyProfile.findById(req.params.id)
-            .populate('userId', 'firstName lastName email');
+            .populate('userId', 'firstName lastName email phone');
         
         if (!company) {
             return res.status(404).json({ message: "Company not found" });
@@ -325,7 +319,7 @@ routes.addCompany = async (req, res) => {
 routes.getCompanyByUserId = async (req, res) => {
     try {
         const company = await CompanyProfile.findOne({ userId: req.user._id })
-            .populate('userId', 'firstName lastName email');
+            .populate('userId', 'firstName lastName email phone');
         
         if (!company) {
             return res.status(404).json({ message: "Company not found for this user" });

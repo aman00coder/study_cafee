@@ -6,11 +6,6 @@ const companyProfileSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
     companyName: {
         type: String,
         required: true,
@@ -21,14 +16,6 @@ const companyProfileSchema = new mongoose.Schema({
         required: true
     },
     companyAddress: {
-        type: String,
-        required: true
-    },
-    companyPhoneNumber: {
-        type: String,
-        required: true
-    },
-    companyEmail: {
         type: String,
         required: true
     },
