@@ -165,6 +165,51 @@ routes.getAllCompanies = async (req, res) => {
   }
 }
 
+routes.getAllUser = async (req, res) => {
+  try {
+    // Fetch all users
+    const users = await User.find()
+      .select("-password") // avoid sending password
+      .lean(); // lean gives plain JS objects
+
+    // Fetch plan purchases with plan details
+    const planPurchases = await PlanPurchase.find({ isActive: true })
+      .populate("plan")
+      .populate("user")
+      .lean();
+
+    // Map userId -> planPurchase
+    const planMap = {};
+    for (const purchase of planPurchases) {
+      planMap[purchase.user._id.toString()] = purchase;
+    }
+
+    // Merge plan data with user info
+    const enrichedUsers = users.map(user => {
+      const userId = user._id.toString();
+      const planInfo = planMap[userId];
+
+      return {
+        ...user,
+        plan: planInfo ? {
+          name: planInfo.plan?.name,
+          selectedCycle: planInfo.selectedCycle,
+          selectedPrice: planInfo.selectedPrice,
+          startDate: planInfo.startDate,
+          endDate: planInfo.endDate,
+          isActive: planInfo.isActive
+        } : null
+      };
+    });
+
+    res.status(200).json({ users: enrichedUsers });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching users with plan details" });
+  }
+};
+
 routes.createDesignation = async (req, res) => {
   try {
     const { name, description } = req.body;

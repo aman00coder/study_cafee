@@ -11,7 +11,7 @@ import authMiddleware from "../../middleware/auth.middleware.js"
 
 const router = express.Router()
 
-router.post("/registerUser",upload.single("profilePhoto") ,userController.registerUser)
+router.post("/registerUser", userController.registerUser)
     //   .post("/sendOTP", userController.sendOTP)
       .post("/verifyOTP", userController.verifyOTP)
       .post("/loginUser", userController.loginUser)
@@ -33,10 +33,10 @@ router.post("/registerUser",upload.single("profilePhoto") ,userController.regist
       .get("/allCategory", userController.getAllCategory)
       .get("/postersByCategory/:categoryId", userController.postersByCategory)
       .get("/postersById/:posterId", userController.postersById)
-      .get("/allPlans", userController.allPlans)
+      // .get("/allPlans", userController.allPlans)
 
       //Review
-      .post("/addReview", authMiddleware(["user"]), userController.addTestimonoal)
+      .post("/addReview", authMiddleware(["user"]), upload.single("profilePhoto"), userController.addTestimonial)
       .get("/review/:id", authMiddleware(["user"]), userController.getTestimonialById)
       .get("/reviewById/:id", authMiddleware(["user"]), userController.getTestimonialByUserId)
       .patch("/updateReview/:testimonialId", authMiddleware(["user"]), userController.updateTestimonial)

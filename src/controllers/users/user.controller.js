@@ -36,19 +36,19 @@ routes.registerUser = async (req, res) => {
         return res.status(409).json({ success: false, message: "Email or Phone already exists" });
     }
 
-    console.log("File", req.file)
-    let profilePhotoUrl = null;
-    if (req.file) {
-        try {
-            const uploadPhoto = await uploadToCloudinary(req.file.path, "Profile-photos")
-            profilePhotoUrl = uploadPhoto.secure_url;
-            fs.unlinkSync(req.file.path); 
+    // console.log("File", req.file)
+    // let profilePhotoUrl = null;
+    // if (req.file) {
+    //     try {
+    //         const uploadPhoto = await uploadToCloudinary(req.file.path, "Profile-photos")
+    //         profilePhotoUrl = uploadPhoto.secure_url;
+    //         fs.unlinkSync(req.file.path); 
     
-            console.log("Profile", profilePhotoUrl)
-        } catch (error) {
-            return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
-        }
-    }
+    //         console.log("Profile", profilePhotoUrl)
+    //     } catch (error) {
+    //         return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
+    //     }
+    // }
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -57,7 +57,7 @@ routes.registerUser = async (req, res) => {
 
     // Save temporarily
     pendingUsers.set(email, {
-        userData: { firstName, lastName, designation, email, phone, password: hashedPassword, profilePhoto: profilePhotoUrl },
+        userData: { firstName, lastName, designation, email, phone, password: hashedPassword},
         otp,
         otpExpires
     });
@@ -603,66 +603,75 @@ routes.getBrandingSet = async (req, res) => {
     }
 }
 
-routes.allPlans = async (req, res) => {
-    try {
-        const plans = await Plan.find({});
-        if (!plans) return res.status(404).json({ message: "No plans found" });
+// routes.allPlans = async (req, res) => {
+//     try {
+//         const plans = await Plan.find({});
+//         if (!plans) return res.status(404).json({ message: "No plans found" });
 
-        return res.status(200).json({ message: "Plans fetched successfully", plans });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+//         return res.status(200).json({ message: "Plans fetched successfully", plans });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: "Internal Server error" });
+//     }
+// }
+
+routes.addTestimonial = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { subject, rating, description } = req.body;
+    const file = req.file; // multer adds this
+
+    if (!subject || !rating || !description) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-}
 
-routes.addTestimonoal = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { subject, rating, description} = req.body;
-
-        if (!subject || !rating || !description) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-
-        if (rating < 1 || rating > 5) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Rating must be between 1 and 5" 
-            });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Check if the user has already submitted a testimonial
-        const existingTestimonial = await Testimonial.findOne({ createdBy: userId });
-        if (existingTestimonial) {
-            return res.status(400).json({
-                success: false,
-                message: "You have already submitted a testimonial"
-            });
-        }
-
-        const testimonial = new Testimonial({
-            createdBy: userId,
-            subject,
-            rating,
-            description,
-        });
-
-        await testimonial.save();
-
-        res.status(201).json({
-            message: "Testimonial submitted successfully",
-            testimonial,
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal Server error" });
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5"
+      });
     }
-}
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Upload profile photo if provided
+    if (file) {
+      const cloudinaryResult = await uploadToCloudinary(file.path, "ProfilePhotos");
+      user.profilePhoto = cloudinaryResult.secure_url;
+      await user.save();
+      fs.unlinkSync(file.path); // delete local file
+    }
+
+    const existingTestimonial = await Testimonial.findOne({ createdBy: userId });
+    if (existingTestimonial) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already submitted a testimonial"
+      });
+    }
+
+    const testimonial = new Testimonial({
+      createdBy: userId,
+      subject,
+      rating,
+      description
+    });
+
+    await testimonial.save();
+
+    res.status(201).json({
+      message: "Testimonial submitted successfully",
+      testimonial,
+      updatedProfilePhoto: user.profilePhoto
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server error" });
+  }
+};
 
 routes.getTestimonialById = async (req, res) => {
     try {

@@ -16,6 +16,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       .get("/allCompany", authMiddleware(["admin"]), adminController.getAllCompanies)
 
+      .get("/allUser", authMiddleware(["admin"]), adminController.getAllUser)
+
       .post("/add-Designation", authMiddleware(["admin"]), adminController.createDesignation)
       .delete("/delete-Designation/:id", authMiddleware(["admin"]), adminController.deleteDesignation)
 
