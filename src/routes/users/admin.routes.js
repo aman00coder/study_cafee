@@ -67,6 +67,11 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
 
       //Invoice
-      .get("/allInvoices", authMiddleware(["admin"]), getAllInvoices); 
+      .get("/allInvoices", authMiddleware(["admin"]), getAllInvoices)
+
+      //Services Portion
+      .post("/addServices", authMiddleware(["admin"]), upload.array("images"), adminController.addServices)
+      // .patch("/updateService/:serviceId", authMiddleware(["admin"]), upload.array("images"), adminController.updateService)
+
 
 export default router;

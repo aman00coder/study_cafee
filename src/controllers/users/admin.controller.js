@@ -11,8 +11,9 @@ import Testimonial from "../../models/testimonails.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
 import PlanPurchase from "../../models/planPurchase.model.js";
 import CompanyProfile from "../../models/companyProfile.js"
+import Service from "../../models/services.model.js";
 import { uploadToCloudinary } from "../../services/cloudinary.js";
-import fs from "fs";
+import fs from "fs/promises";
 import { sendOTP } from "../../services/nodemailer.js";
 import cloudinary from "cloudinary";
 
@@ -1232,6 +1233,52 @@ routes.purchaseById = async (req, res) => {
   } catch (err) {
     console.error("Admin Purchase Error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+routes.addServices = async (req, res) => {
+  try {
+    const { title, description, position } = req.body;
+
+    const serviceCount = await Service.countDocuments();
+    if (serviceCount >= 3) {
+      return res.status(400).json({ message: "Only 3 services are allowed. Please delete an existing one to add a new service." });
+    }
+
+    // Check for existing service with same position
+    const existing = await Service.findOne({ position });
+    if (existing) {
+      return res.status(400).json({ message: `A service with position "${position}" already exists.` });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "At least one image is required" });
+    }
+
+    // Upload all files to Cloudinary
+    const imageUrls = [];
+    for (const file of req.files) {
+      const result = await uploadToCloudinary(file.path, "services");
+      imageUrls.push(result.secure_url);
+
+      // Delete local file after upload
+      await fs.unlink(file.path);
+    }
+
+    // Create and save the service
+    const newService = new Service({
+      title,
+      description,
+      position,
+      imageSet: imageUrls,
+    });
+
+    await newService.save();
+
+    return res.status(201).json({ message: "Service added successfully", service: newService });
+  } catch (error) {
+    console.error("Error adding services:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
