@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema({
         ref: "Designation",
         required: [true, "Designation is required"]
     },
+    city:{
+        type: String,
+        required: [true, "City is required"],
+        trim: true
+    },
     email: {
         type: String,
         required: [true, "Email is required"],

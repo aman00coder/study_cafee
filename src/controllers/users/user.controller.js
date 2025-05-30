@@ -25,9 +25,9 @@ const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
     try {
-        const { firstName, lastName, designation, email, phone, password } = req.body;
+        const { firstName, lastName, designation, email, phone, password, city } = req.body;
     
-    if (!firstName || !lastName || !designation || !email || !phone || !password) {
+    if (!firstName || !lastName || !designation || !email || !phone || !password || !city) {
         return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
@@ -57,7 +57,7 @@ routes.registerUser = async (req, res) => {
 
     // Save temporarily
     pendingUsers.set(email, {
-        userData: { firstName, lastName, designation, email, phone, password: hashedPassword},
+        userData: { firstName, lastName, designation, city, email, phone, password: hashedPassword},
         otp,
         otpExpires
     });
@@ -335,7 +335,7 @@ routes.getCompanyByUserId = async (req, res) => {
 routes.updateUserProfile = async (req, res) => {
     try {
         const userId = req.user._id; // assuming user is authenticated
-    const { firstName, lastName, phone } = req.body;
+    const { firstName, lastName, phone, city } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -365,6 +365,7 @@ routes.updateUserProfile = async (req, res) => {
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone) user.phone = phone;
+    if (city) user.city = city;
 
     await user.save();
 
