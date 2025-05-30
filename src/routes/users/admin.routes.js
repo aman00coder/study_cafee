@@ -74,5 +74,6 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .patch("/updateService/:id", authMiddleware(["admin"]), upload.array("files"), adminController.updateService)
       .get("/allServices", adminController.getAllService)
       .get("/serviceById/:id", authMiddleware(["admin"]), adminController.getServiceById)
+      .delete("/deleteService/:id", authMiddleware(["admin"]), adminController.deleteService)
 
 export default router;

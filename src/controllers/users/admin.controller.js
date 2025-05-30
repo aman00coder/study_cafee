@@ -1440,5 +1440,48 @@ routes.getServiceById = async (req, res) => {
   }
 };
 
+routes.deleteService = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Find the service to be deleted
+    const serviceToDelete = await Service.findById(id);
+    if (!serviceToDelete) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    // 2. Delete all images from Cloudinary
+    const deleteImagePromises = serviceToDelete.imageSet.map(async (imageUrl) => {
+      try {
+        // Extract public_id from URL (last part without extension)
+        const publicId = imageUrl.split('/').pop().split('.')[0];
+        const fullPublicId = `Study-Cafe/services/${publicId}`;
+        await cloudinary.v2.uploader.destroy(fullPublicId);
+      } catch (error) {
+        console.error(`Error deleting image ${imageUrl} from Cloudinary:`, error);
+        // Continue even if one image fails to delete
+      }
+    });
+
+    // Wait for all image deletions to complete
+    await Promise.all(deleteImagePromises);
+
+    // 3. Delete the service document from MongoDB
+    await Service.findByIdAndDelete(id);
+
+    return res.status(200).json({ 
+      message: "Service deleted successfully",
+      deletedService: {
+        id: serviceToDelete._id,
+        title: serviceToDelete.title,
+        position: serviceToDelete.position
+      }
+    });
+
+  } catch (error) {
+    console.error("Error deleting service:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 export default routes;
