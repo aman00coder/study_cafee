@@ -71,7 +71,8 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       //Services Portion
       .post("/addServices", authMiddleware(["admin"]), upload.array("images"), adminController.addServices)
-      // .patch("/updateService/:serviceId", authMiddleware(["admin"]), upload.array("images"), adminController.updateService)
-
+      .patch("/updateService/:id", authMiddleware(["admin"]), upload.array("files"), adminController.updateService)
+      .get("/allServices", adminController.getAllService)
+      .get("/serviceById/:id", authMiddleware(["admin"]), adminController.getServiceById)
 
 export default router;

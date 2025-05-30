@@ -1282,4 +1282,165 @@ routes.addServices = async (req, res) => {
   }
 };
 
+routes.updateService = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, position, imagesToRemove } = req.body;
+
+    // Find the existing service
+    const existingService = await Service.findById(id);
+    if (!existingService) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    // Check if position is being changed to one that's already taken
+    if (position && position !== existingService.position) {
+      const positionTaken = await Service.findOne({ position });
+      if (positionTaken) {
+        return res.status(400).json({
+          message: `Position "${position}" is already taken by another service`
+        });
+      }
+    }
+
+    // Check if title is being changed to one that's already taken
+    if (title && title !== existingService.title) {
+      const titleTaken = await Service.findOne({ title });
+      if (titleTaken) {
+        return res.status(400).json({
+          message: `Title "${title}" is already taken by another service`
+        });
+      }
+    }
+
+    // Properly parse imagesToRemove (can be a string or array)
+    let parsedImagesToRemove = [];
+    if (imagesToRemove) {
+      if (typeof imagesToRemove === "string") {
+        try {
+          parsedImagesToRemove = JSON.parse(imagesToRemove);
+        } catch (err) {
+          parsedImagesToRemove = imagesToRemove.split(',').map(s => s.trim());
+        }
+      } else if (Array.isArray(imagesToRemove)) {
+        parsedImagesToRemove = imagesToRemove;
+      }
+    }
+
+    // Image removal logic
+    let updatedImageSet = [...existingService.imageSet];
+    if (parsedImagesToRemove.length > 0) {
+      console.log("Images to remove (parsed):", parsedImagesToRemove);
+
+      if (updatedImageSet.length - parsedImagesToRemove.length < 3) {
+        return res.status(400).json({
+          message: "A service must have at least 3 images. Upload new images before removing these."
+        });
+      }
+
+      for (const imageUrl of parsedImagesToRemove) {
+        try {
+          const publicId = imageUrl.split('/').pop().split('.')[0];
+          const fullPublicId = `Study-Cafe/services/${publicId}`;
+          await cloudinary.v2.uploader.destroy(fullPublicId);
+        } catch (error) {
+          console.error("Error deleting image from Cloudinary:", error);
+        }
+      }
+
+      updatedImageSet = updatedImageSet.filter(img => !parsedImagesToRemove.includes(img));
+      console.log("Updated imageSet after removal:", updatedImageSet);
+    }
+
+    // Upload new images if present
+    if (req.files && req.files.length > 0) {
+      const newImageUrls = [];
+      for (const file of req.files) {
+        try {
+          const result = await uploadToCloudinary(file.path, "services");
+          newImageUrls.push(result.secure_url);
+          await fs.unlink(file.path); // Remove local file
+        } catch (error) {
+          console.error("Error uploading new image:", error);
+
+          // Clean up uploaded images if error occurs
+          for (const url of newImageUrls) {
+            try {
+              const publicId = url.split('/').pop().split('.')[0];
+              await cloudinary.v2.uploader.destroy(`Study-Cafe/services/${publicId}`);
+            } catch (cleanupError) {
+              console.error("Error cleaning up failed upload:", cleanupError);
+            }
+          }
+
+          return res.status(500).json({ message: "Error uploading new images" });
+        }
+      }
+
+      updatedImageSet = [...updatedImageSet, ...newImageUrls];
+      console.log("Final imageSet after upload:", updatedImageSet);
+    }
+
+    // Final image set check
+    if (updatedImageSet.length < 3) {
+      return res.status(400).json({
+        message: "A service must have at least 3 images"
+      });
+    }
+
+    // Update service fields
+    existingService.title = title || existingService.title;
+    existingService.description = description || existingService.description;
+    existingService.position = position || existingService.position;
+    existingService.imageSet = updatedImageSet;
+
+    await existingService.save();
+
+    return res.status(200).json({
+      message: "Service updated successfully",
+      service: existingService
+    });
+
+  } catch (error) {
+    console.error("Error updating service:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+routes.getAllService = async (req, res) => {
+  try {
+    const services = await Service.find().sort({ position: 1 }); // Sorted by position (optional)
+
+    return res.status(200).json({
+      message: "Services fetched successfully",
+      services,
+    });
+  } catch (error) {
+    console.error("Error fetching services:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+routes.getServiceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findById(id);
+
+    if (!service) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    return res.status(200).json({
+      message: "Service fetched successfully",
+      service,
+    });
+  } catch (error) {
+    console.error("Error fetching service by ID:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 export default routes;
