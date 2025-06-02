@@ -285,7 +285,7 @@ routes.createBanner = async (req, res) => {
     const imageUrls = await Promise.all(
       req.files.slice(0, 3).map(async (file) => {
         const result = await uploadToCloudinary(file.path, "Banner");
-        fs.unlinkSync(file.path);
+        await fs.unlink(file.path);
         return result.secure_url;
       })
     );
@@ -693,7 +693,7 @@ routes.addPosters = async (req, res) => {
     try {
       const uploadPoster = await uploadToCloudinary(req.file.path, "Posters");
       posterImage = uploadPoster.secure_url;
-      fs.unlinkSync(req.file.path);
+      await fs.unlink(req.file.path);
     } catch (error) {
       return res
         .status(500)
