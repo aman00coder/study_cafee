@@ -170,6 +170,7 @@ routes.getAllUser = async (req, res) => {
   try {
     const users = await User.find()
       .select("-password")
+      .populate("designation", "name")
       .lean();
 
     const planPurchases = await PlanPurchase.find({ isActive: true })
@@ -276,11 +277,22 @@ routes.createBanner = async (req, res) => {
         .json({ message: "Maximum 3 images allowed per banner set" });
     }
 
-    const verifyDublicate = await Banner.findOne({ title });
-    if (verifyDublicate)
-      return res
-        .status(400)
-        .json({ message: "Same title named banner already exists" });
+const verifyDublicate = await Banner.findOne({ title });
+if (verifyDublicate) {
+  // Clean up uploaded files
+  if (req.files && req.files.length > 0) {
+    for (const file of req.files) {
+      try {
+        await fs.unlink(file.path);
+      } catch (err) {
+        console.warn("File already deleted or missing:", file.path);
+      }
+    }
+  }
+
+  return res.status(400).json({ message: "Same title named banner already exists" });
+}
+
 
     const imageUrls = await Promise.all(
       req.files.slice(0, 3).map(async (file) => {
