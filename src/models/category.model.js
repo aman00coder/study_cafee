@@ -16,6 +16,10 @@ const categorySchema = new mongoose.Schema({
     ref: "Category", // self-reference
     default: null
   },
+  eventDate: {
+    type: Date,
+    default: null
+  },
   isActive: {
     type: Boolean,
     default: true

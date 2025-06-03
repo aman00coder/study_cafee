@@ -425,46 +425,52 @@ routes.getBannerSet = async (req, res) => {
 }
 
 routes.getAllCategory = async (req, res) => {
-    try {
-      // Step 1: Fetch all categories
-      const categories = await Category.find({}).lean(); // Use .lean() for better performance
-  
-      if (!categories.length) {
-        return res.status(404).json({ message: "No categories found" });
-      }
-  
-      // Step 2: Create a map of categories by ID
-      const categoryMap = {};
-      categories.forEach(cat => {
-        cat.subcategories = []; // prepare field to hold nested subcategories
-        categoryMap[cat._id.toString()] = cat;
-      });
-  
-      // Step 3: Organize into nested structure
-      const nestedCategories = [];
-  
-      categories.forEach(cat => {
-        if (cat.parentCategory) {
-          const parentId = cat.parentCategory.toString();
-          if (categoryMap[parentId]) {
-            categoryMap[parentId].subcategories.push(cat);
-          }
-        } else {
-          // Top-level (parent) category
-          nestedCategories.push(cat);
-        }
-      });
-  
-      res.status(200).json({
-        message: "Categories fetched successfully",
-        categories: nestedCategories
-      });
-  
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ message: "Internal Server error" });
+  try {
+    // Step 1: Fetch all categories and sort subcategories by eventDate (new to old)
+    const categories = await Category.find({}).lean();
+
+    if (!categories.length) {
+      return res.status(404).json({ message: "No categories found" });
     }
-  };
+
+    // Step 2: Sort subcategories (those with a parentCategory) by eventDate descending
+    const sortedSubcategories = categories
+      .filter(cat => cat.parentCategory)
+      .sort((a, b) => {
+        const dateA = a.eventDate ? new Date(a.eventDate).getTime() : 0;
+        const dateB = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+        return dateB - dateA; // Descending
+      });
+
+    // Step 3: Create a map of categories by ID
+    const categoryMap = {};
+    categories.forEach(cat => {
+      cat.subcategories = [];
+      categoryMap[cat._id.toString()] = cat;
+    });
+
+    // Step 4: Attach sorted subcategories to their respective parent
+    sortedSubcategories.forEach(sub => {
+      const parentId = sub.parentCategory.toString();
+      if (categoryMap[parentId]) {
+        categoryMap[parentId].subcategories.push(sub);
+      }
+    });
+
+    // Step 5: Collect top-level categories
+    const nestedCategories = categories.filter(cat => !cat.parentCategory);
+
+    res.status(200).json({
+      message: "Categories fetched successfully",
+      categories: nestedCategories
+    });
+
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ message: "Internal Server error" });
+  }
+};
+
   
 
 routes.postersByCategory = async (req, res) => {

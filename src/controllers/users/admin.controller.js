@@ -538,7 +538,7 @@ routes.deleteBanner = async (req, res) => {
 // Create a new category
 routes.createCategory = async (req, res) => {
   try {
-    const { name, description, parentCategory } = req.body;
+    const { name, description, parentCategory, eventDate } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Category name is required" });
@@ -547,9 +547,7 @@ routes.createCategory = async (req, res) => {
     // Check for duplicate category name
     const existing = await Category.findOne({ name: name.trim() });
     if (existing) {
-      return res
-        .status(400)
-        .json({ message: "Category with this name already exists" });
+      return res.status(400).json({ message: "Category with this name already exists" });
     }
 
     let parent = null;
@@ -560,31 +558,38 @@ routes.createCategory = async (req, res) => {
       }
     }
 
+    // Validate eventDate can only be set for subcategories
+    if (!parentCategory && eventDate) {
+      return res.status(400).json({
+        message: "eventDate can only be set for subcategories (categories with a parent)",
+      });
+    }
+
     const newCategory = new Category({
       name: name.trim(),
       description,
       parentCategory: parentCategory || null,
+      eventDate: eventDate && parentCategory ? eventDate : null, // assign only if it's a subcategory
     });
 
     await newCategory.save();
 
-    res
-      .status(201)
-      .json({
-        message: "Category created successfully",
-        category: newCategory,
-      });
+    res.status(201).json({
+      message: "Category created successfully",
+      category: newCategory,
+    });
   } catch (error) {
     console.error("Error creating category:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
 // Update Category (name, description, isActive)
 routes.updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, isActive, parentCategory } = req.body;
+    const { name, description, isActive, parentCategory, eventDate } = req.body;
 
     const category = await Category.findById(id);
     if (!category) {
@@ -592,7 +597,6 @@ routes.updateCategory = async (req, res) => {
     }
 
     if (name) {
-      // Check if new name is already taken by another category
       const duplicate = await Category.findOne({
         name: name.trim(),
         _id: { $ne: id },
@@ -608,9 +612,10 @@ routes.updateCategory = async (req, res) => {
     if (description !== undefined) category.description = description;
     if (isActive !== undefined) category.isActive = isActive;
 
+    let parent = null;
     if (parentCategory !== undefined) {
       if (parentCategory) {
-        const parent = await Category.findById(parentCategory);
+        parent = await Category.findById(parentCategory);
         if (!parent) {
           return res.status(400).json({ message: "Invalid parent category" });
         }
@@ -623,6 +628,23 @@ routes.updateCategory = async (req, res) => {
       } else {
         category.parentCategory = null;
       }
+    } else {
+      parent = category.parentCategory; // retain existing parent
+    }
+
+    // Validate eventDate only allowed for subcategories
+    if (eventDate !== undefined) {
+      if (!category.parentCategory && !parentCategory) {
+        return res.status(400).json({
+          message: "eventDate can only be set for subcategories (with a parent category)",
+        });
+      }
+      category.eventDate = eventDate;
+    }
+
+    // If category is now a main category, clear eventDate
+    if (!category.parentCategory) {
+      category.eventDate = null;
     }
 
     await category.save();
@@ -635,6 +657,7 @@ routes.updateCategory = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 routes.categoryById = async (req, res) => {
   try {
