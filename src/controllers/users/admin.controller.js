@@ -437,7 +437,7 @@ routes.updateBanner = async (req, res) => {
       const newImages = await Promise.all(
         req.files.map(async (file) => {
           const result = await uploadToCloudinary(file.path);
-          fs.unlinkSync(file.path);
+          await fs.unlink(file.path);
           return result.secure_url;
         })
       );
@@ -845,7 +845,7 @@ routes.postersForBranding = async (req, res) => {
       req.files.slice(0, 3).map(async (file) => {
         // Ensures only 3 even if frontend sends more
         const result = await uploadToCloudinary(file.path, "Branding-Posters");
-        fs.unlinkSync(file.path); // Delete temp file
+        await fs.unlink(file.path);
         return result.secure_url;
       })
     );

@@ -643,7 +643,7 @@ routes.addTestimonial = async (req, res) => {
       const cloudinaryResult = await uploadToCloudinary(file.path, "ProfilePhotos");
       user.profilePhoto = cloudinaryResult.secure_url;
       await user.save();
-      fs.unlinkSync(file.path); // delete local file
+      await fs.unlink(file.path); // delete local file
     }
 
     const existingTestimonial = await Testimonial.findOne({ createdBy: userId });
