@@ -258,47 +258,115 @@ routes.allDesignation = async (req, res) => {
 }
 
 routes.addCompany = async (req, res) => {
-    try {
-      const {
-        companyName,
-        companyAddress,
-        companyWebsite
-      } = req.body;
-  
-      const userId = req.user?._id || req.body.userId; // depending on your auth logic
-  
-      if (!userId || !companyName || !companyAddress || !companyWebsite || !req.file) {
-        return res.status(400).json({ message: "All fields including logo are required." });
-      }
-  
-      // Upload logo to Cloudinary
-      const uploadResult = await uploadToCloudinary(req.file.path, 'Company-Logos');
-  
-      // Clean up local file
-      fs.unlinkSync(req.file.path);
-  
-      // Create company profile
-      const newCompanyProfile = new CompanyProfile({
-        userId,
-        companyName,
-        companyAddress,
-        companyWebsite,
-        companyLogo: uploadResult.secure_url,
-        isFilled: true
-      });
-  
-      const savedProfile = await newCompanyProfile.save();
-  
-      res.status(201).json({
-        message: "Company profile created successfully.",
-        data: savedProfile
-      });
-  
-    } catch (error) {
-      console.error("Error in addCompany:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+  try {
+    const {
+      companyName,
+      companyAddress,
+      companyWebsite,
+      companyGST
+    } = req.body;
+
+    const userId = req.user?._id; // ✅ Always rely on authenticated user
+
+    if (!userId || !companyName || !companyAddress || !companyWebsite || !req.file) {
+      return res.status(400).json({ message: "All required fields including logo must be provided." });
     }
-  };
+
+    // 🔒 Check if user already has a company profile
+    const existingProfile = await CompanyProfile.findOne({ userId });
+    if (existingProfile) {
+      return res.status(400).json({ message: "Company profile already exists for this user." });
+    }
+
+    // Upload logo to Cloudinary
+    const uploadResult = await uploadToCloudinary(req.file.path, 'Company-Logos');
+    fs.unlinkSync(req.file.path); // Delete temp file
+
+    // Create and save new company profile
+    const newCompanyProfile = new CompanyProfile({
+      userId,
+      companyName,
+      companyAddress,
+      companyWebsite,
+      companyGST,
+      companyLogo: uploadResult.secure_url,
+      isFilled: true
+    });
+
+    const savedProfile = await newCompanyProfile.save();
+
+    res.status(201).json({
+      message: "Company profile created successfully.",
+      data: savedProfile
+    });
+
+  } catch (error) {
+    console.error("Error in addCompany:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+routes.updateCompany = async (req, res) => {
+  try {
+    const {
+      companyName,
+      companyAddress,
+      companyWebsite,
+      companyGST
+    } = req.body;
+
+    const userId = req.user?._id || req.body.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
+
+    // Find existing company profile
+    const existingCompany = await CompanyProfile.findOne({ userId });
+    if (!existingCompany) {
+      return res.status(404).json({ message: "Company profile not found." });
+    }
+
+    // Handle logo update
+    if (req.file) {
+      // Upload new logo
+      const uploadResult = await uploadToCloudinary(req.file.path, 'Company-Logos');
+      fs.unlinkSync(req.file.path); // Delete local file
+
+      // Extract public_id from old Cloudinary URL
+      const oldLogoUrl = existingCompany.companyLogo;
+      const publicIdMatch = oldLogoUrl.match(/\/Study-Cafe\/Company-Logos\/(.+)\.(jpg|jpeg|png|gif|svg)$/i);
+      if (publicIdMatch && publicIdMatch[1]) {
+        const publicId = `Study-Cafe/Company-Logos/${publicIdMatch[1]}`;
+        // Delete old logo from Cloudinary
+        await cloudinary.v2.uploader.destroy(publicId);
+      }
+
+      // Set new logo URL
+      existingCompany.companyLogo = uploadResult.secure_url;
+    }
+
+    // Update other fields if provided
+    if (companyName) existingCompany.companyName = companyName;
+    if (companyAddress) existingCompany.companyAddress = companyAddress;
+    if (companyWebsite) existingCompany.companyWebsite = companyWebsite;
+    if (companyGST) existingCompany.companyGST = companyGST;
+
+    existingCompany.isFilled = true;
+
+    const updatedCompany = await existingCompany.save();
+
+    res.status(200).json({
+      message: "Company profile updated successfully.",
+      data: updatedCompany
+    });
+
+  } catch (error) {
+    console.error("Error in updateCompany:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 
   routes.getCompanyById = async (req, res) => {
     try {
@@ -439,7 +507,7 @@ routes.getAllCategory = async (req, res) => {
       .sort((a, b) => {
         const dateA = a.eventDate ? new Date(a.eventDate).getTime() : 0;
         const dateB = b.eventDate ? new Date(b.eventDate).getTime() : 0;
-        return dateB - dateA; // Descending
+        return dateA - dateB; // Ascending
       });
 
     // Step 3: Create a map of categories by ID

@@ -20,6 +20,7 @@ router.post("/registerUser", userController.registerUser)
 
       //Comapnay Routes
       .post("/add-company",authMiddleware(["user"]), upload.single('companyLogo'),userController.addCompany)
+      .patch("/update-company",authMiddleware(["user"]), upload.single('companyLogo'),userController.updateCompany)
       .get("/comapnyById/:id",authMiddleware(["user","admin"]), userController.getCompanyById)
       .get("/comapnyByUser",authMiddleware(["user","admin"]), userController.getCompanyByUserId)
 

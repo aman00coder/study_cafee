@@ -23,6 +23,9 @@ const companyProfileSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    companyGST:{
+        type: String
+    },
     isFilled: {
         type: Boolean,
         default: false

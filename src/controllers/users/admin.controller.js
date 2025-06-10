@@ -271,11 +271,11 @@ routes.createBanner = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No images uploaded" });
     }
-    if (req.files.length > 3) {
-      return res
-        .status(400)
-        .json({ message: "Maximum 3 images allowed per banner set" });
-    }
+    // if (req.files.length > 3) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Maximum 3 images allowed per banner set" });
+    // }
 
 const verifyDublicate = await Banner.findOne({ title });
 if (verifyDublicate) {
@@ -295,7 +295,7 @@ if (verifyDublicate) {
 
 
     const imageUrls = await Promise.all(
-      req.files.slice(0, 3).map(async (file) => {
+      req.files.map(async (file) => {
         const result = await uploadToCloudinary(file.path, "Banner");
         await fs.unlink(file.path);
         return result.secure_url;
