@@ -1028,8 +1028,16 @@ routes.deleteBrandingPoster = async (req, res) => {
 
 routes.createPlan = async (req, res) => {
   try {
-    const { name, billingOptions, categories, taxType, taxPercentage } = req.body;
+    const {
+      name,
+      billingOptions,
+      categories,
+      taxType,
+      taxPercentage,
+      features
+    } = req.body;
 
+    // Basic validation
     if (
       !name ||
       !billingOptions?.monthly ||
@@ -1040,31 +1048,45 @@ routes.createPlan = async (req, res) => {
       return res.status(400).json({ message: "All required fields are missing" });
     }
 
-    // Validate taxPercentage if taxType is provided
-    if (taxType && taxType === "exclusive" && (taxPercentage === undefined || taxPercentage === null)) {
-      return res.status(400).json({ message: "Tax percentage is required for exclusive tax type" });
+    // Validate taxPercentage if taxType is exclusive
+    if (
+      taxType === "exclusive" &&
+      (taxPercentage === undefined || taxPercentage === null)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Tax percentage is required for exclusive tax type" });
+    }
+
+    // Validate and map features if provided
+    let parsedFeatures = [];
+    if (features && Array.isArray(features)) {
+      parsedFeatures = features.map((f) => ({
+        label: f.label,
+        status: !!f.status, // ensure boolean
+      }));
     }
 
     const newPlan = new Plan({
       name,
       billingOptions,
       categories,
-      taxType: taxType || "inclusive", // default to inclusive
-      taxPercentage: taxPercentage !== undefined ? Number(taxPercentage) : 0
+      taxType: taxType || "inclusive",
+      taxPercentage: taxPercentage !== undefined ? Number(taxPercentage) : 0,
+      features: parsedFeatures,
     });
 
     await newPlan.save();
 
     res.status(201).json({
       message: "Plan created successfully",
-      plan: newPlan
+      plan: newPlan,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error creating plan:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 
 routes.allPlans = async (req, res) => {
