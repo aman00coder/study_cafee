@@ -1132,7 +1132,15 @@ routes.planById = async (req, res) => {
 routes.updatePlan = async (req, res) => {
   try {
     const { planId } = req.params;
-    const { name, billingOptions, categories, isActive, taxType, taxPercentage } = req.body;
+    const {
+      name,
+      billingOptions,
+      categories,
+      isActive,
+      taxType,
+      taxPercentage,
+      features
+    } = req.body;
 
     if (!planId) {
       return res.status(400).json({ message: "Plan ID is required" });
@@ -1143,28 +1151,43 @@ routes.updatePlan = async (req, res) => {
       return res.status(404).json({ message: "Plan not found" });
     }
 
-    // Update fields
+    // ✅ Update basic fields
     if (name !== undefined) plan.name = name;
-    if (billingOptions?.monthly !== undefined) plan.billingOptions.monthly = billingOptions.monthly;
-    if (billingOptions?.yearly !== undefined) plan.billingOptions.yearly = billingOptions.yearly;
-    if (categories !== undefined) plan.categories = categories;
     if (isActive !== undefined) plan.isActive = isActive;
-    
-    // Update tax fields with validation
+    if (categories !== undefined) plan.categories = categories;
+
+    // ✅ Update billing options
+    if (billingOptions?.monthly !== undefined)
+      plan.billingOptions.monthly = Number(billingOptions.monthly);
+    if (billingOptions?.yearly !== undefined)
+      plan.billingOptions.yearly = Number(billingOptions.yearly);
+
+    // ✅ Tax logic
     if (taxType !== undefined) {
+      if (!["inclusive", "exclusive"].includes(taxType)) {
+        return res.status(400).json({ message: "Invalid tax type" });
+      }
       plan.taxType = taxType;
-      // If changing to exclusive and no percentage provided, keep current or default to 0
-      if (taxType === "exclusive" && taxPercentage === undefined) {
-        plan.taxPercentage = plan.taxPercentage || 0;
+
+      if (taxType === "exclusive" && (taxPercentage === undefined || isNaN(Number(taxPercentage)))) {
+        return res.status(400).json({ message: "Tax percentage is required and must be a number for exclusive tax type" });
       }
     }
+
     if (taxPercentage !== undefined) {
-      // Validate that percentage is a number
-      const percentage = Number(taxPercentage);
-      if (isNaN(percentage)) {
+      const percent = Number(taxPercentage);
+      if (isNaN(percent)) {
         return res.status(400).json({ message: "Tax percentage must be a number" });
       }
-      plan.taxPercentage = percentage;
+      plan.taxPercentage = percent;
+    }
+
+    // ✅ Update features array
+    if (features && Array.isArray(features)) {
+      plan.features = features.map((f) => ({
+        label: f.label,
+        status: !!f.status
+      }));
     }
 
     const updatedPlan = await plan.save();
@@ -1174,7 +1197,7 @@ routes.updatePlan = async (req, res) => {
       plan: updatedPlan,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Update Plan Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
