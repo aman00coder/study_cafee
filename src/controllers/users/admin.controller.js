@@ -1151,40 +1151,31 @@ routes.updatePlan = async (req, res) => {
       return res.status(404).json({ message: "Plan not found" });
     }
 
-    // ✅ Update basic fields
+    // Update fields
     if (name !== undefined) plan.name = name;
-    if (isActive !== undefined) plan.isActive = isActive;
+    if (billingOptions?.monthly !== undefined) plan.billingOptions.monthly = billingOptions.monthly;
+    if (billingOptions?.yearly !== undefined) plan.billingOptions.yearly = billingOptions.yearly;
     if (categories !== undefined) plan.categories = categories;
+    if (isActive !== undefined) plan.isActive = isActive;
 
-    // ✅ Update billing options
-    if (billingOptions?.monthly !== undefined)
-      plan.billingOptions.monthly = Number(billingOptions.monthly);
-    if (billingOptions?.yearly !== undefined)
-      plan.billingOptions.yearly = Number(billingOptions.yearly);
-
-    // ✅ Tax logic
+    // Tax update
     if (taxType !== undefined) {
-      if (!["inclusive", "exclusive"].includes(taxType)) {
-        return res.status(400).json({ message: "Invalid tax type" });
-      }
       plan.taxType = taxType;
-
-      if (taxType === "exclusive" && (taxPercentage === undefined || isNaN(Number(taxPercentage)))) {
-        return res.status(400).json({ message: "Tax percentage is required and must be a number for exclusive tax type" });
+      if (taxType === "exclusive" && taxPercentage === undefined) {
+        plan.taxPercentage = plan.taxPercentage || 0;
       }
     }
-
     if (taxPercentage !== undefined) {
-      const percent = Number(taxPercentage);
-      if (isNaN(percent)) {
+      const percentage = Number(taxPercentage);
+      if (isNaN(percentage)) {
         return res.status(400).json({ message: "Tax percentage must be a number" });
       }
-      plan.taxPercentage = percent;
+      plan.taxPercentage = percentage;
     }
 
-    // ✅ Update features array
-    if (features && Array.isArray(features)) {
-      plan.features = features.map((f) => ({
+    // ✅ Features update
+    if (features !== undefined && Array.isArray(features)) {
+      plan.features = features.map(f => ({
         label: f.label,
         status: !!f.status
       }));
@@ -1197,10 +1188,11 @@ routes.updatePlan = async (req, res) => {
       plan: updatedPlan,
     });
   } catch (error) {
-    console.error("Update Plan Error:", error);
+    console.error("Update plan error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 routes.deletePlan = async (req, res) => {
   try {
