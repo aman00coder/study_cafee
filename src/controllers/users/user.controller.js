@@ -494,6 +494,37 @@ routes.getBannerSet = async (req, res) => {
 
 routes.getAllCategory = async (req, res) => {
   try {
+    const today = new Date();
+
+    // STEP 1: Auto-update eventDates
+    const updatableCategories = await Category.find({
+      eventDate: { $lt: today },
+      repeatFrequency: { $in: ["quarterly", "half-yearly", "yearly"] }
+    });
+
+    for (let cat of updatableCategories) {
+      let monthsToAdd = 0;
+      switch (cat.repeatFrequency) {
+        case "quarterly":
+          monthsToAdd = 3;
+          break;
+        case "half-yearly":
+          monthsToAdd = 6;
+          break;
+        case "yearly":
+          monthsToAdd = 12;
+          break;
+      }
+
+      let newDate = new Date(cat.eventDate);
+      while (newDate < today) {
+        newDate.setMonth(newDate.getMonth() + monthsToAdd);
+      }
+
+      cat.eventDate = newDate;
+      await cat.save();
+    }
+
     // Step 1: Fetch all categories and sort subcategories by eventDate (new to old)
     const categories = await Category.find({}).lean();
 

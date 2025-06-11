@@ -20,6 +20,11 @@ const categorySchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  repeatFrequency: {
+    type: String,
+    enum: ["quarterly", "half-yearly", "yearly", "none"],
+    default: "none"
+  },
   isActive: {
     type: Boolean,
     default: true

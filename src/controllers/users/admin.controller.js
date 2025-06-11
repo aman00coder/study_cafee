@@ -538,13 +538,12 @@ routes.deleteBanner = async (req, res) => {
 // Create a new category
 routes.createCategory = async (req, res) => {
   try {
-    const { name, description, parentCategory, eventDate } = req.body;
+    const { name, description, parentCategory, eventDate, repeatFrequency } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Category name is required" });
     }
 
-    // Check for duplicate category name
     const existing = await Category.findOne({ name: name.trim() });
     if (existing) {
       return res.status(400).json({ message: "Category with this name already exists" });
@@ -558,10 +557,22 @@ routes.createCategory = async (req, res) => {
       }
     }
 
-    // Validate eventDate can only be set for subcategories
-    if (!parentCategory && eventDate) {
+    const isSubcategory = !!parentCategory;
+
+    if (!isSubcategory && (eventDate || repeatFrequency !== undefined)) {
       return res.status(400).json({
-        message: "eventDate can only be set for subcategories (categories with a parent)",
+        message: "eventDate and repeatFrequency are only allowed for subcategories",
+      });
+    }
+
+    if (
+      isSubcategory &&
+      repeatFrequency &&
+      repeatFrequency !== "none" &&
+      !eventDate
+    ) {
+      return res.status(400).json({
+        message: "eventDate is required when repeatFrequency is set for a subcategory",
       });
     }
 
@@ -569,7 +580,8 @@ routes.createCategory = async (req, res) => {
       name: name.trim(),
       description,
       parentCategory: parentCategory || null,
-      eventDate: eventDate && parentCategory ? eventDate : null, // assign only if it's a subcategory
+      eventDate: isSubcategory ? eventDate : null,
+      repeatFrequency: isSubcategory ? (repeatFrequency || "none") : "none"
     });
 
     await newCategory.save();
@@ -585,17 +597,26 @@ routes.createCategory = async (req, res) => {
 };
 
 
+
 // Update Category (name, description, isActive)
 routes.updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, isActive, parentCategory, eventDate } = req.body;
+    const {
+      name,
+      description,
+      isActive,
+      parentCategory,
+      eventDate,
+      repeatFrequency,
+    } = req.body;
 
     const category = await Category.findById(id);
     if (!category) {
       return res.status(404).json({ message: "Category not found." });
     }
 
+    // Check for duplicate name
     if (name) {
       const duplicate = await Category.findOne({
         name: name.trim(),
@@ -628,23 +649,39 @@ routes.updateCategory = async (req, res) => {
       } else {
         category.parentCategory = null;
       }
-    } else {
-      parent = category.parentCategory; // retain existing parent
     }
 
-    // Validate eventDate only allowed for subcategories
-    if (eventDate !== undefined) {
-      if (!category.parentCategory && !parentCategory) {
+    const isSubcategory = category.parentCategory || parentCategory;
+
+    if (!isSubcategory && (eventDate || repeatFrequency)) {
+      category.eventDate = null;
+      category.repeatFrequency = "none";
+    }
+
+    if (isSubcategory && repeatFrequency !== undefined) {
+      if (!["none", "quarterly", "half-yearly", "yearly"].includes(repeatFrequency)) {
         return res.status(400).json({
-          message: "eventDate can only be set for subcategories (with a parent category)",
+          message: "repeatFrequency must be one of: none, quarterly, half-yearly, yearly",
         });
       }
+
+      const finalEventDate = eventDate || category.eventDate;
+      if (repeatFrequency !== "none" && !finalEventDate) {
+        return res.status(400).json({
+          message: "eventDate is required when repeatFrequency is set for a subcategory",
+        });
+      }
+
+      category.repeatFrequency = repeatFrequency;
+    }
+
+    if (eventDate !== undefined && isSubcategory) {
       category.eventDate = eventDate;
     }
 
-    // If category is now a main category, clear eventDate
-    if (!category.parentCategory) {
+    if (!isSubcategory) {
       category.eventDate = null;
+      category.repeatFrequency = "none";
     }
 
     await category.save();
@@ -657,6 +694,7 @@ routes.updateCategory = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 routes.categoryById = async (req, res) => {
