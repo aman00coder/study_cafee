@@ -14,6 +14,7 @@ import CompanyProfile from "../../models/companyProfile.js"
 import Service from "../../models/services.model.js";
 import { uploadToCloudinary } from "../../services/cloudinary.js";
 import fs from "fs/promises";
+import fsSync from "fs"; 
 import { sendOTP } from "../../services/nodemailer.js";
 import cloudinary from "cloudinary";
 
@@ -866,11 +867,11 @@ routes.postersForBranding = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No images uploaded" });
     }
-    if (req.files.length > 3) {
-      return res
-        .status(400)
-        .json({ message: "Maximum 3 images allowed per banner set" });
-    }
+    // if (req.files.length > 3) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Maximum 3 images allowed per banner set" });
+    // }
 
     const verifyDublicate = await BrandingPoster.findOne({ title });
     if (verifyDublicate)
@@ -880,13 +881,17 @@ routes.postersForBranding = async (req, res) => {
 
     // Upload all images to Cloudinary
     const imageUrls = await Promise.all(
-      req.files.slice(0, 3).map(async (file) => {
-        // Ensures only 3 even if frontend sends more
-        const result = await uploadToCloudinary(file.path, "Branding-Posters");
-        await fs.unlink(file.path);
-        return result.secure_url;
-      })
-    );
+  req.files.map(async (file) => {
+    const result = await uploadToCloudinary(file.path, "Branding-Posters");
+
+    // Safely delete local file after upload
+    if (fsSync.existsSync(file.path)) {
+      await fs.unlink(file.path);
+    }
+
+    return result.secure_url;
+  })
+);
 
     if (isActive === "true" || isActive === true) {
       await BrandingPoster.updateMany(
