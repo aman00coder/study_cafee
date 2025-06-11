@@ -1378,6 +1378,10 @@ routes.addServices = async (req, res) => {
       await fs.unlink(file.path);
     }
 
+    if (imageUrls.length < 3) {
+      return res.status(400).json({ message: "At least 3 images are required." });
+    }
+
     // Create and save the service
     const newService = new Service({
       title,
