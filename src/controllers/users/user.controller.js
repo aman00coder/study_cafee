@@ -462,7 +462,7 @@ routes.getCompanyByUserId = async (req, res) => {
 routes.updateUserProfile = async (req, res) => {
   try {
     const userId = req.user._id; // assuming user is authenticated
-    const { firstName, lastName, phone, city } = req.body;
+    const { firstName, lastName, phone, city, designation } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -493,6 +493,7 @@ routes.updateUserProfile = async (req, res) => {
     if (lastName) user.lastName = lastName;
     if (phone) user.phone = phone;
     if (city) user.city = city;
+    if (designation) user.designation = designation
 
     await user.save();
 
