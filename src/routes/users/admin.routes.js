@@ -56,6 +56,9 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .patch("/updateCoupon/:couponId", authMiddleware(["admin"]), couponController.updateCoupon)
       .get("/allCoupons", authMiddleware(["admin","user"]), couponController.allCoupons)
       .get("/validateCoupon/:code", authMiddleware(["user"]), couponController.validateCoupon)
+      .get("/couponById/:couponId", authMiddleware(["admin"]), couponController.getCouponById)
+      .delete("/deleteCoupon/:couponId", authMiddleware(["admin"]), couponController.deleteCoupon)
+      
 
       //Review
       .get("/allTestimonial", adminController.allTestimonial)

@@ -120,5 +120,36 @@ routes.updateCoupon = async (req, res) => {
   }
 };
 
+routes.getCouponById = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    return res.status(200).json(coupon);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+routes.deleteCoupon = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+
+    const coupon = await Coupon.findByIdAndDelete(couponId);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    return res.status(200).json({ message: "Coupon deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export default routes;
