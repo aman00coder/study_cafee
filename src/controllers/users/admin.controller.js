@@ -539,7 +539,7 @@ routes.deleteBanner = async (req, res) => {
 // Create a new category
 routes.createCategory = async (req, res) => {
   try {
-    const { name, description, parentCategory, eventDate, repeatFrequency } = req.body;
+    const { name, description, parentCategory, eventDate, repeatFrequency, tableColumns, tableData } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Category name is required" });
@@ -560,7 +560,7 @@ routes.createCategory = async (req, res) => {
 
     const isSubcategory = !!parentCategory;
 
-    if (!isSubcategory && (eventDate || repeatFrequency !== undefined)) {
+    if (!isSubcategory && (eventDate || repeatFrequency)) {
       return res.status(400).json({
         message: "eventDate and repeatFrequency are only allowed for subcategories",
       });
@@ -577,12 +577,29 @@ routes.createCategory = async (req, res) => {
       });
     }
 
+    // Validate tableColumns for parent
+    if (!isSubcategory && tableColumns && !Array.isArray(tableColumns)) {
+      return res.status(400).json({ message: "tableColumns must be an array" });
+    }
+
+    // Validate tableData for subcategory
+    if (isSubcategory && parent?.tableColumns?.length > 0) {
+      const missingFields = parent.tableColumns.filter(col => !tableData || !tableData[col]);
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          message: `Missing fields in tableData: ${missingFields.join(", ")}`
+        });
+      }
+    }
+
     const newCategory = new Category({
       name: name.trim(),
       description,
       parentCategory: parentCategory || null,
       eventDate: isSubcategory ? eventDate : null,
-      repeatFrequency: isSubcategory ? (repeatFrequency || "none") : "none"
+      repeatFrequency: isSubcategory ? (repeatFrequency || "none") : "none",
+      tableColumns: !isSubcategory ? tableColumns : [],
+      tableData: isSubcategory ? tableData : {}
     });
 
     await newCategory.save();
@@ -610,6 +627,8 @@ routes.updateCategory = async (req, res) => {
       parentCategory,
       eventDate,
       repeatFrequency,
+      tableColumns,
+      tableData
     } = req.body;
 
     const category = await Category.findById(id);
@@ -617,16 +636,16 @@ routes.updateCategory = async (req, res) => {
       return res.status(404).json({ message: "Category not found." });
     }
 
-    // Check for duplicate name
+    // ✅ Check for duplicate name
     if (name) {
       const duplicate = await Category.findOne({
         name: name.trim(),
         _id: { $ne: id },
       });
       if (duplicate) {
-        return res
-          .status(409)
-          .json({ message: "Another category with this name already exists." });
+        return res.status(409).json({
+          message: "Another category with this name already exists."
+        });
       }
       category.name = name.trim();
     }
@@ -654,42 +673,71 @@ routes.updateCategory = async (req, res) => {
 
     const isSubcategory = category.parentCategory || parentCategory;
 
-    if (!isSubcategory && (eventDate || repeatFrequency)) {
-      category.eventDate = null;
-      category.repeatFrequency = "none";
-    }
-
-    if (isSubcategory && repeatFrequency !== undefined) {
-      if (!["none", "quarterly", "half-yearly", "yearly"].includes(repeatFrequency)) {
-        return res.status(400).json({
-          message: "repeatFrequency must be one of: none, quarterly, half-yearly, yearly",
-        });
-      }
-
-      const finalEventDate = eventDate || category.eventDate;
-      if (repeatFrequency !== "none" && !finalEventDate) {
-        return res.status(400).json({
-          message: "eventDate is required when repeatFrequency is set for a subcategory",
-        });
-      }
-
-      category.repeatFrequency = repeatFrequency;
-    }
-
-    if (eventDate !== undefined && isSubcategory) {
-      category.eventDate = eventDate;
-    }
-
+    // 🟡 Handle parent logic
     if (!isSubcategory) {
-      category.eventDate = null;
-      category.repeatFrequency = "none";
+      if (eventDate !== undefined || repeatFrequency !== undefined) {
+        category.eventDate = null;
+        category.repeatFrequency = "none";
+      }
+
+      if (tableColumns !== undefined) {
+        if (!Array.isArray(tableColumns)) {
+          return res.status(400).json({
+            message: "tableColumns must be an array for parent categories",
+          });
+        }
+        category.tableColumns = tableColumns;
+      }
+
+      // If converting from subcategory to parent, clear tableData
+      category.tableData = {};
+    }
+
+    // 🔵 Handle subcategory logic
+    if (isSubcategory) {
+      if (repeatFrequency !== undefined) {
+        if (
+          !["none", "monthly", "quarterly", "half-yearly", "yearly"].includes(repeatFrequency)
+        ) {
+          return res.status(400).json({
+            message: "repeatFrequency must be one of: none, monthly, quarterly, half-yearly, yearly",
+          });
+        }
+
+        const finalEventDate = eventDate || category.eventDate;
+        if (repeatFrequency !== "none" && !finalEventDate) {
+          return res.status(400).json({
+            message: "eventDate is required when repeatFrequency is set",
+          });
+        }
+
+        category.repeatFrequency = repeatFrequency;
+      }
+
+      if (eventDate !== undefined) {
+        category.eventDate = eventDate;
+      }
+
+      // Handle tableData
+      const finalParent = parent || await Category.findById(category.parentCategory);
+
+      if (finalParent?.tableColumns?.length > 0 && tableData !== undefined) {
+        const missingFields = finalParent.tableColumns.filter(col => !tableData[col]);
+        if (missingFields.length > 0) {
+          return res.status(400).json({
+            message: `Missing fields in tableData: ${missingFields.join(", ")}`
+          });
+        }
+        category.tableData = tableData;
+      }
     }
 
     await category.save();
 
-    res
-      .status(200)
-      .json({ message: "Category updated successfully", category });
+    res.status(200).json({
+      message: "Category updated successfully",
+      category,
+    });
   } catch (error) {
     console.error("Error updating category:", error.message);
     res.status(500).json({ message: "Server error" });

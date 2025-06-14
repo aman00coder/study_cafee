@@ -576,12 +576,15 @@ routes.getAllCategory = async (req, res) => {
     // STEP 1: Auto-update eventDates
     const updatableCategories = await Category.find({
       eventDate: { $lt: today },
-      repeatFrequency: { $in: ["quarterly", "half-yearly", "yearly"] },
+      repeatFrequency: { $in: ["monthly","quarterly", "half-yearly", "yearly"] },
     });
 
     for (let cat of updatableCategories) {
       let monthsToAdd = 0;
       switch (cat.repeatFrequency) {
+        case "monthly":
+          monthsToAdd = 1;
+          break;
         case "quarterly":
           monthsToAdd = 3;
           break;
@@ -645,6 +648,104 @@ routes.getAllCategory = async (req, res) => {
     res.status(500).json({ message: "Internal Server error" });
   }
 };
+
+routes.getParentCategories = async (req, res) => {
+  try {
+    const parents = await Category.find({ parentCategory: null }).sort({ name: 1 });
+
+    res.status(200).json({
+      message: "Parent categories fetched successfully",
+      categories: parents
+    });
+  } catch (error) {
+    console.error("Error fetching parent categories:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+routes.getSubcategoriesByParentId = async (req, res) => {
+  try {
+    const { parentId } = req.params;
+
+    // Step 1: Find and validate parent
+    const parent = await Category.findById(parentId);
+    if (!parent) {
+      return res.status(404).json({ message: "Parent category not found" });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0); // Midnight today
+
+    // Step 2: Find subcategories of this parent
+    const subcategories = await Category.find({ parentCategory: parentId });
+
+    // Step 3: Auto-update eventDates for eligible subcategories
+    for (let sub of subcategories) {
+      const isOutdated =
+        sub.eventDate &&
+        new Date(sub.eventDate) < todayStart &&
+        ["monthly", "quarterly", "half-yearly", "yearly"].includes(sub.repeatFrequency);
+
+      if (isOutdated) {
+        let monthsToAdd = 0;
+        switch (sub.repeatFrequency) {
+          case "monthly":
+            monthsToAdd = 1;
+            break;
+          case "quarterly":
+            monthsToAdd = 3;
+            break;
+          case "half-yearly":
+            monthsToAdd = 6;
+            break;
+          case "yearly":
+            monthsToAdd = 12;
+            break;
+        }
+
+        let updatedDate = new Date(sub.eventDate);
+        while (updatedDate < todayStart) {
+          updatedDate.setMonth(updatedDate.getMonth() + monthsToAdd);
+        }
+
+        sub.eventDate = updatedDate;
+        await sub.save(); // Save updated subcategory
+      }
+    }
+
+    // Step 4: Re-fetch updated subcategories with latest data
+    const updatedSubcategories = await Category.find({ parentCategory: parentId }).lean();
+
+    const formatted = updatedSubcategories.map(sub => ({
+      _id: sub._id,
+      name: sub.name,
+      description: sub.description,
+      eventDate: sub.eventDate,
+      repeatFrequency: sub.repeatFrequency,
+      tableData: sub.tableData && typeof sub.tableData.entries === 'function'
+  ? Object.fromEntries(sub.tableData.entries())
+  : sub.tableData || {}
+
+    }));
+
+    // Step 5: Return the response
+    res.status(200).json({
+      message: "Subcategories with data fetched successfully",
+      parent: {
+        _id: parent._id,
+        name: parent.name,
+        tableColumns: parent.tableColumns || []
+      },
+      subcategories: formatted
+    });
+  } catch (error) {
+    console.error("Error fetching subcategories:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 
 routes.postersByCategory = async (req, res) => {
   try {

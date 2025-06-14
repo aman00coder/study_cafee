@@ -16,13 +16,22 @@ const categorySchema = new mongoose.Schema({
     ref: "Category", // self-reference
     default: null
   },
+    tableColumns: {
+    type: [String],
+    default: [] // Only for parent categories
+  },
+  tableData: {
+    type: Map,
+    of: String,
+    default: {} // Only for subcategories
+  },
   eventDate: {
     type: Date,
     default: null
   },
   repeatFrequency: {
     type: String,
-    enum: ["quarterly", "half-yearly", "yearly", "none"],
+    enum: ["monthly","quarterly", "half-yearly", "yearly", "none"],
     default: "none"
   },
   isActive: {
