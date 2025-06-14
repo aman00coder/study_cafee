@@ -31,6 +31,7 @@ router.post("/registerUser", userController.registerUser)
 
       //Branding Routes
       .get("/getBrandingPosters", userController.getBrandingSet)
+      
       .get("/allCategory", userController.getAllCategory)
       .get("/postersByCategory/:categoryId", userController.postersByCategory)
       .get("/postersById/:posterId", userController.postersById)

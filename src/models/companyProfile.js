@@ -4,24 +4,24 @@ const companyProfileSchema = new mongoose.Schema({
     userId:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        // required: true
     },
     companyName: {
         type: String,
-        required: true,
+        // required: true,
         trim: true
     },
     companyLogo: {
         type: String,
-        required: true
+        // required: true
     },
     companyAddress: {
         type: String,
-        required: true
+        // required: true
     },
     companyWebsite: {
         type: String,
-        required: true
+        // required: true
     },
     companyGST:{
         type: String
@@ -31,6 +31,8 @@ const companyProfileSchema = new mongoose.Schema({
         default: false
     }
 }, { timestamps: true })
+
+
 
 const CompanyProfile = mongoose.model('CompanyProfile', companyProfileSchema)
 export default CompanyProfile

@@ -25,7 +25,7 @@ const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, designation, email, phone, password, city } =
+    const { firstName, lastName, designation, email, phone, password, city, companyGST } =
       req.body;
 
     if (
@@ -78,6 +78,7 @@ routes.registerUser = async (req, res) => {
         phone,
         password: hashedPassword,
       },
+      companyGST,
       otp,
       otpExpires,
     });
@@ -159,6 +160,7 @@ routes.verifyOTP = async (req, res) => {
     const { email, otp } = req.body;
 
     const pending = pendingUsers.get(email);
+
     if (!pending)
       return res
         .status(404)
@@ -171,6 +173,16 @@ routes.verifyOTP = async (req, res) => {
     const newUser = new User(pending.userData);
     newUser.isVerified = true;
     await newUser.save();
+
+    if (pending.companyGST) {
+  const companyProfile = new CompanyProfile({
+    userId: newUser._id,
+    companyGST: pending.companyGST,
+    isFilled: false // Partial entry
+  });
+  await companyProfile.save();
+}
+
 
     pendingUsers.delete(email); // Clean up after success
 
@@ -303,41 +315,41 @@ routes.allDesignation = async (req, res) => {
 
 routes.addCompany = async (req, res) => {
   try {
-    const { companyName, companyAddress, companyWebsite, companyGST } =
-      req.body;
+    const { companyName, companyAddress, companyWebsite, companyGST } = req.body;
+    const userId = req.user?._id;
 
-    const userId = req.user?._id; // ✅ Always rely on authenticated user
-
-    if (
-      !userId ||
-      !companyName ||
-      !companyAddress ||
-      !companyWebsite ||
-      !req.file
-    ) {
-      return res
-        .status(400)
-        .json({
-          message: "All required fields including logo must be provided.",
-        });
-    }
-
-    // 🔒 Check if user already has a company profile
-    const existingProfile = await CompanyProfile.findOne({ userId });
-    if (existingProfile) {
-      return res
-        .status(400)
-        .json({ message: "Company profile already exists for this user." });
+    // Basic validation
+    if (!userId || !companyName || !companyAddress || !companyWebsite || !req.file) {
+      return res.status(400).json({
+        message: "All required fields including logo must be provided.",
+      });
     }
 
     // Upload logo to Cloudinary
-    const uploadResult = await uploadToCloudinary(
-      req.file.path,
-      "Company-Logos"
-    );
-    fs.unlinkSync(req.file.path); // Delete temp file
+    const uploadResult = await uploadToCloudinary(req.file.path, "Company-Logos");
+    fs.unlinkSync(req.file.path); // Delete local temp file
 
-    // Create and save new company profile
+    // Check for existing profile
+    let profile = await CompanyProfile.findOne({ userId });
+
+    if (profile) {
+      // ✅ Update existing company profile
+      profile.companyName = companyName; 
+      profile.companyAddress = companyAddress;
+      profile.companyWebsite = companyWebsite;
+      profile.companyGST = companyGST || profile.companyGST;
+      profile.companyLogo = uploadResult.secure_url;
+      profile.isFilled = true;
+
+      const updatedProfile = await profile.save();
+
+      return res.status(200).json({
+        message: "Company profile updated successfully.",
+        data: updatedProfile,
+      });
+    }
+
+    // ✅ Create new company profile
     const newCompanyProfile = new CompanyProfile({
       userId,
       companyName,
@@ -359,6 +371,7 @@ routes.addCompany = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 routes.updateCompany = async (req, res) => {
   try {
