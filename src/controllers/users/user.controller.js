@@ -651,11 +651,29 @@ routes.getAllCategory = async (req, res) => {
 
 routes.getParentCategories = async (req, res) => {
   try {
-    const parents = await Category.find({ parentCategory: null }).sort({ name: 1 });
+    const parents = await Category.find({ parentCategory: null }).sort({ name: 1 }).lean();
+
+    // Fetch all subcategories to check which parent has subcategories
+    const subcategoryCounts = await Category.aggregate([
+      { $match: { parentCategory: { $ne: null } } },
+      { $group: { _id: "$parentCategory", count: { $sum: 1 } } }
+    ]);
+
+    // Convert aggregation result into a map
+    const subMap = {};
+    subcategoryCounts.forEach(item => {
+      subMap[item._id.toString()] = item.count;
+    });
+
+    // Attach `hasSubcategories` to each parent category
+    const enhancedParents = parents.map(parent => ({
+      ...parent,
+      hasSubcategories: !!subMap[parent._id.toString()]
+    }));
 
     res.status(200).json({
       message: "Parent categories fetched successfully",
-      categories: parents
+      categories: enhancedParents
     });
   } catch (error) {
     console.error("Error fetching parent categories:", error.message);
@@ -664,9 +682,11 @@ routes.getParentCategories = async (req, res) => {
 };
 
 
+
 routes.getSubcategoriesByParentId = async (req, res) => {
   try {
     const { parentId } = req.params;
+    const { dateFilter } = req.query;
 
     // Step 1: Find and validate parent
     const parent = await Category.findById(parentId);
@@ -675,7 +695,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     }
 
     const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0); // Midnight today
+    todayStart.setHours(0, 0, 0, 0);
 
     // Step 2: Find subcategories of this parent
     const subcategories = await Category.find({ parentCategory: parentId });
@@ -710,40 +730,106 @@ routes.getSubcategoriesByParentId = async (req, res) => {
         }
 
         sub.eventDate = updatedDate;
-        await sub.save(); // Save updated subcategory
+        await sub.save();
       }
     }
 
-    // Step 4: Re-fetch updated subcategories with latest data
-    const updatedSubcategories = await Category.find({ parentCategory: parentId }).lean();
+    // Step 4: Re-fetch updated subcategories
+    let filteredSubcategories = await Category.find({ parentCategory: parentId }).lean();
 
-    const formatted = updatedSubcategories.map(sub => ({
+    // Step 5: Apply date filter
+    if (dateFilter) {
+      const now = new Date();
+      const start = new Date();
+      const end = new Date();
+
+      switch (dateFilter) {
+        case "today":
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextDay":
+          start.setDate(start.getDate() + 1);
+          start.setHours(0, 0, 0, 0);
+          end.setDate(end.getDate() + 1);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "thisWeek":
+          const day = start.getDay(); // 0 (Sun) to 6 (Sat)
+          const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust to Monday
+          start.setDate(diff);
+          start.setHours(0, 0, 0, 0);
+          end.setDate(start.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextWeek":
+          const nextWeekStart = new Date();
+          nextWeekStart.setDate(start.getDate() + (7 - start.getDay() + 1)); // next Monday
+          nextWeekStart.setHours(0, 0, 0, 0);
+          const nextWeekEnd = new Date(nextWeekStart);
+          nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+          nextWeekEnd.setHours(23, 59, 59, 999);
+          start.setTime(nextWeekStart);
+          end.setTime(nextWeekEnd);
+          break;
+
+        case "thisMonth":
+          start.setDate(1);
+          start.setHours(0, 0, 0, 0);
+          end.setMonth(start.getMonth() + 1);
+          end.setDate(0); // last day of current month
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextMonth":
+          start.setMonth(start.getMonth() + 1, 1);
+          start.setHours(0, 0, 0, 0);
+          end.setMonth(start.getMonth() + 1, 0); // last day of next month
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        default:
+          return res.status(400).json({ message: "Invalid date filter" });
+      }
+
+      filteredSubcategories = filteredSubcategories.filter(sub => {
+        if (!sub.eventDate) return false;
+        const eventTime = new Date(sub.eventDate).getTime();
+        return eventTime >= start.getTime() && eventTime <= end.getTime();
+      });
+    }
+
+    // Step 6: Format and respond
+    const formatted = filteredSubcategories.map(sub => ({
       _id: sub._id,
       name: sub.name,
       description: sub.description,
       eventDate: sub.eventDate,
       repeatFrequency: sub.repeatFrequency,
-      tableData: sub.tableData && typeof sub.tableData.entries === 'function'
-  ? Object.fromEntries(sub.tableData.entries())
-  : sub.tableData || {}
-
+      tableData:
+        sub.tableData && typeof sub.tableData.entries === "function"
+          ? Object.fromEntries(sub.tableData.entries())
+          : sub.tableData || {},
     }));
 
-    // Step 5: Return the response
     res.status(200).json({
       message: "Subcategories with data fetched successfully",
       parent: {
         _id: parent._id,
         name: parent.name,
-        tableColumns: parent.tableColumns || []
+        tableColumns: parent.tableColumns || [],
       },
-      subcategories: formatted
+      subcategories: formatted,
     });
   } catch (error) {
     console.error("Error fetching subcategories:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
