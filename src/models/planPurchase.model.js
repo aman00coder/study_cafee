@@ -16,6 +16,11 @@ const planPurchaseSchema = new mongoose.Schema(
     startDate: { type: Date, default: Date.now },
     endDate: { type: Date },
     isActive: { type: Boolean, default: true },
+    planSnapshot: {
+  type: Object,
+  required: true
+}
+
   },
   { timestamps: true }
 );

@@ -87,17 +87,21 @@ const finalAmountInPaise = Math.round(finalAmount * 100); // Final rounding to p
     // ✅ Save order in DB
     const paymentOrder = new PaymentOrder({
       user: userId,
-      plan: planId,
-      selectedCycle,
-      selectedPrice: basePrice,
-      discount,
-      taxAmount,
-      amount: finalAmountInPaise,
-      razorpayOrderId: razorpayOrder.id,
-      status: "created",
-      appliedCoupon: appliedCoupon ? appliedCoupon.code : null,
-      taxType: plan.taxType,
-      taxPercentage: plan.taxPercentage
+  plan: planId,
+  selectedCycle,
+  selectedPrice: basePrice,
+  amount: finalAmountInPaise,
+  razorpayOrderId: razorpayOrder.id,
+  status: "created",
+  appliedCoupon: appliedCoupon ? appliedCoupon.code : null,
+  planSnapshot: {
+    name: plan.name,
+    features: plan.features,
+    billingOptions: plan.billingOptions,
+    taxType: plan.taxType,
+    taxPercentage: plan.taxPercentage,
+  }
+
     });
 
     await paymentOrder.save();
@@ -175,11 +179,13 @@ routes.purchasePlan = async (req, res) => {
     // Save plan purchase
     const newPurchase = new PlanPurchase({
       user: userId,
-      plan: paymentOrder.plan,
-      selectedCycle: paymentOrder.selectedCycle,
-      selectedPrice: paymentOrder.selectedPrice,
-      startDate,
-      endDate,
+  plan: paymentOrder.plan,
+  selectedCycle: paymentOrder.selectedCycle,
+  selectedPrice: paymentOrder.selectedPrice,
+  startDate,
+  endDate,
+  planSnapshot: paymentOrder.planSnapshot
+
     });
 
     await newPurchase.save();

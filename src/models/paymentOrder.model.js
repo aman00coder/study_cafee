@@ -14,6 +14,11 @@ const paymentOrderSchema = new mongoose.Schema({
     type: String, // coupon code
     default: null
   },
+  planSnapshot: {
+  type: Object,
+  required: true
+}
+
 }, { timestamps: true });
 
 const PaymentOrder = mongoose.model("PaymentOrder", paymentOrderSchema);

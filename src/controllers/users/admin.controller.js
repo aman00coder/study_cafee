@@ -1128,18 +1128,16 @@ routes.createPlan = async (req, res) => {
       features
     } = req.body;
 
-    // Basic validation
     if (
       !name ||
       !billingOptions?.monthly ||
       !billingOptions?.yearly ||
-      !categories ||
+      !Array.isArray(categories) ||
       categories.length === 0
     ) {
       return res.status(400).json({ message: "All required fields are missing" });
     }
 
-    // Validate taxPercentage if taxType is exclusive
     if (
       taxType === "exclusive" &&
       (taxPercentage === undefined || taxPercentage === null)
@@ -1149,12 +1147,34 @@ routes.createPlan = async (req, res) => {
         .json({ message: "Tax percentage is required for exclusive tax type" });
     }
 
-    // Validate and map features if provided
+    // Check for duplicate name with active plan
+    const nameExists = await Plan.findOne({ name, isActive: true });
+    if (nameExists) {
+      return res.status(400).json({ message: "An active plan with the same name already exists." });
+    }
+
+    // Check for duplicate categories with active plans
+    const activePlans = await Plan.find({ isActive: true });
+    const sortedCategories = [...categories].sort();
+
+    const duplicatePlan = activePlans.find((plan) => {
+      const existingSorted = [...plan.categories.map(String)].sort();
+      return (
+        existingSorted.length === sortedCategories.length &&
+        existingSorted.every((catId, idx) => catId === String(sortedCategories[idx]))
+      );
+    });
+
+    if (duplicatePlan) {
+      return res.status(400).json({ message: "An active plan with the same categories already exists." });
+    }
+
+    // Prepare features
     let parsedFeatures = [];
     if (features && Array.isArray(features)) {
       parsedFeatures = features.map((f) => ({
         label: f.label,
-        status: !!f.status, // ensure boolean
+        status: !!f.status,
       }));
     }
 
@@ -1286,22 +1306,14 @@ routes.updatePlan = async (req, res) => {
 
 
 routes.deletePlan = async (req, res) => {
-  try {
-    const { planId } = req.params;
+  const { planId } = req.params;
 
-    if (!planId)
-      return res.status(400).json({ message: "Plan ID is required" });
+  const updated = await Plan.findByIdAndUpdate(planId, { isActive: false });
+  if (!updated) return res.status(404).json({ message: "Plan not found" });
 
-    const deletedPlan = await Plan.findByIdAndDelete(planId);
-    if (!deletedPlan)
-      return res.status(404).json({ message: "Plan not found" });
-
-    res.status(200).json({ message: "Plan deleted successfully", deletedPlan });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-  }
+  res.status(200).json({ message: "Plan marked as inactive" });
 };
+
 
 routes.allTestimonial = async (req, res) => {
   try {
