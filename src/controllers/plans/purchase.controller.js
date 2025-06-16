@@ -224,7 +224,14 @@ routes.userPurchases = async (req, res) => {
   try {
     const purchases = await PlanPurchase.find({ user: req.user._id })
     .populate("user", "firstName lastName email")
-      .populate("plan", "name")
+      .populate({
+        path: "plan",
+        select: "name categories",
+        populate: {
+          path: "categories",
+          select: "name", // only fetch category name
+        },
+      })
       .sort({ createdAt: -1 });
 
     res.status(200).json({ message: "User purchases fetched", purchases });

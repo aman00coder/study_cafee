@@ -1174,32 +1174,43 @@ routes.downloadPoster = async (req, res) => {
 
     const today = new Date();
 
-    // Step 1: Check for active plan
-    const activePlan = await PlanPurchase.findOne({
+    // Step 1: Get ALL active plans
+    const activePlans = await PlanPurchase.find({
       user: userId,
       startDate: { $lte: today },
       endDate: { $gte: today },
     }).populate("plan");
 
-    if (!activePlan || !activePlan.plan) {
+    // console.log("Active Plans:", activePlans);
+
+    if (!activePlans || activePlans.length === 0) {
       return res.status(200).json({ allowed: false });
     }
 
-    // Step 2: Get categories from plan
-    const allowedCategoryIds = activePlan.plan.categories.map((id) =>
-      id.toString()
-    );
+    // Step 2: Collect ALL categories from ALL active plans
+    const allowedCategoryIds = [];
+    activePlans.forEach((purchase) => {
+      if (purchase.plan && Array.isArray(purchase.plan.categories)) {
+        purchase.plan.categories.forEach((catId) => {
+          const idStr = typeof catId === "object" ? catId._id.toString() : catId.toString();
+          if (!allowedCategoryIds.includes(idStr)) {
+            allowedCategoryIds.push(idStr);
+          }
+        });
+      }
+    });
 
-    // Step 3: Include sub-categories under allowed categories
+    // Step 3: Include subcategories
     const subCategories = await Category.find({
       parentCategory: { $in: allowedCategoryIds },
     });
+
     const allCategoryIds = [
       ...allowedCategoryIds,
       ...subCategories.map((sub) => sub._id.toString()),
     ];
 
-    // Step 4: Get poster and check if category is allowed
+    // Step 4: Get the poster
     const poster = await Poster.findById(posterId);
     if (
       !poster ||
@@ -1212,9 +1223,10 @@ routes.downloadPoster = async (req, res) => {
     // ✅ Poster is allowed
     return res.status(200).json({ allowed: true });
   } catch (error) {
-    console.error(error);
+    console.error("Download Poster Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 export default routes;
