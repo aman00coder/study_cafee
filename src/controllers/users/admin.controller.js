@@ -1202,10 +1202,12 @@ routes.createPlan = async (req, res) => {
 
 routes.allPlans = async (req, res) => {
   try {
-    const plans = await Plan.find().sort({ createdAt: -1 }).populate("categories", "name"); // Sort by date descending: newest to oldest
+    const plans = await Plan.find({ isActive: true }) // Only active plans
+      .sort({ createdAt: -1 }) // Newest first
+      .populate("categories", "name");
 
     if (plans.length === 0)
-      return res.status(404).json({ message: "No plans found" });
+      return res.status(404).json({ message: "No active plans found" });
 
     res.status(200).json(plans);
   } catch (error) {
@@ -1213,6 +1215,7 @@ routes.allPlans = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 routes.planById = async (req, res) => {
   try {
