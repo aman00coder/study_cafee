@@ -25,49 +25,34 @@ const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, designation, email, phone, password, city, companyGST } =
-      req.body;
+    const { firstName, lastName, designation, email, phone, password, city, companyGST } = req.body;
 
-    if (
-      !firstName ||
-      !lastName ||
-      !designation ||
-      !email ||
-      !phone ||
-      !password ||
-      !city
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
+    // Required fields check
+    if (!firstName || !lastName || !designation || !email || !phone || !password || !city) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
+    // ✅ Phone format validation
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number format. Must be a 10-digit Indian mobile number.",
+      });
+    }
+
+    // ✅ Duplicate email or phone check
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
-      return res
-        .status(409)
-        .json({ success: false, message: "Email or Phone already exists" });
+      return res.status(409).json({ success: false, message: "Email or Phone already exists" });
     }
 
-    // console.log("File", req.file)
-    // let profilePhotoUrl = null;
-    // if (req.file) {
-    //     try {
-    //         const uploadPhoto = await uploadToCloudinary(req.file.path, "Profile-photos")
-    //         profilePhotoUrl = uploadPhoto.secure_url;
-    //         fs.unlinkSync(req.file.path);
-
-    //         console.log("Profile", profilePhotoUrl)
-    //     } catch (error) {
-    //         return res.status(500).json({ success: false, message: "Failed to upload profile photo" });
-    //     }
-    // }
-
+    // Create and store OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Save temporarily
+    // Temporarily save user data in memory or cache
     pendingUsers.set(email, {
       userData: {
         firstName,
@@ -85,23 +70,20 @@ routes.registerUser = async (req, res) => {
 
     await sendOTP(email, otp);
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "OTP sent. Please verify to complete registration.",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent. Please verify to complete registration.",
+    });
   } catch (error) {
     console.error("Registration Error:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to register user",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to register user",
+      error: error.message,
+    });
   }
 };
+
 
 // Send OTP (separate endpoint)
 // routes.sendOTP = async (req, res) => {
