@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
-const testOrderId = "order_QZV5CGsiBbFwSc";
-const testPaymentId = "pay_29QQoUBi66xm4f";
+const testOrderId = "order_QiczQQWMdtmKBv";
+const testPaymentId = "pay_29QQoUBi66xm56";
 const secret = "yhg29G6s5L7OcCrRm3eZhkHN";
 
 const testSignature = crypto

@@ -10,11 +10,11 @@ import Designation from "../../models/designation.model.js";
 import Testimonial from "../../models/testimonails.model.js";
 import PaymentOrder from "../../models/paymentOrder.model.js";
 import PlanPurchase from "../../models/planPurchase.model.js";
-import CompanyProfile from "../../models/companyProfile.js"
+import CompanyProfile from "../../models/companyProfile.js";
 import Service from "../../models/services.model.js";
 import { uploadToCloudinary } from "../../services/cloudinary.js";
 import fs from "fs/promises";
-import fsSync from "fs"; 
+import fsSync from "fs";
 import { sendOTP } from "../../services/nodemailer.js";
 import cloudinary from "cloudinary";
 
@@ -156,16 +156,16 @@ routes.resetPassword = async (req, res) => {
 
 routes.getAllCompanies = async (req, res) => {
   try {
-      const companies = await CompanyProfile.find()
-          .populate('userId', 'firstName lastName email') // Assuming you want some user details
-          .sort({ createdAt: -1 }); // Newest first
-      
-      res.status(200).json(companies);
+    const companies = await CompanyProfile.find()
+      .populate("userId", "firstName lastName email") // Assuming you want some user details
+      .sort({ createdAt: -1 }); // Newest first
+
+    res.status(200).json(companies);
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error fetching companies" });
+    console.error(error);
+    res.status(500).json({ message: "Error fetching companies" });
   }
-}
+};
 
 routes.getAllUser = async (req, res) => {
   try {
@@ -186,30 +186,35 @@ routes.getAllUser = async (req, res) => {
       }
     }
 
-    const enrichedUsers = users.map(user => {
+    const enrichedUsers = users.map((user) => {
       const userId = user._id.toString();
       const planInfo = planMap[userId];
       return {
         ...user,
-        plan: planInfo ? {
-          name: planInfo.plan?.name,
-          selectedCycle: planInfo.selectedCycle,
-          selectedPrice: planInfo.selectedPrice,
-          startDate: planInfo.startDate,
-          endDate: planInfo.endDate,
-          isActive: planInfo.isActive
-        } : null
+        plan: planInfo
+          ? {
+              name: planInfo.plan?.name,
+              selectedCycle: planInfo.selectedCycle,
+              selectedPrice: planInfo.selectedPrice,
+              startDate: planInfo.startDate,
+              endDate: planInfo.endDate,
+              isActive: planInfo.isActive,
+            }
+          : null,
       };
     });
 
     res.status(200).json({ users: enrichedUsers });
-
   } catch (error) {
     console.error("Error in getAllUser:", error);
-    res.status(500).json({ message: "Error fetching users with plan details", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Error fetching users with plan details",
+        error: error.message,
+      });
   }
 };
-
 
 routes.createDesignation = async (req, res) => {
   try {
@@ -230,12 +235,10 @@ routes.createDesignation = async (req, res) => {
 
     await newDesignation.save();
 
-    return res
-      .status(201)
-      .json({
-        message: "Designation created successfully",
-        designation: newDesignation,
-      });
+    return res.status(201).json({
+      message: "Designation created successfully",
+      designation: newDesignation,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -253,12 +256,10 @@ routes.deleteDesignation = async (req, res) => {
     if (!deletedDesignation)
       return res.status(404).json({ message: "Designation not found" });
 
-    return res
-      .status(200)
-      .json({
-        message: "Designation deleted successfully",
-        deletedDesignation,
-      });
+    return res.status(200).json({
+      message: "Designation deleted successfully",
+      deletedDesignation,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -278,22 +279,23 @@ routes.createBanner = async (req, res) => {
     //     .json({ message: "Maximum 3 images allowed per banner set" });
     // }
 
-const verifyDublicate = await Banner.findOne({ title });
-if (verifyDublicate) {
-  // Clean up uploaded files
-  if (req.files && req.files.length > 0) {
-    for (const file of req.files) {
-      try {
-        await fs.unlink(file.path);
-      } catch (err) {
-        console.warn("File already deleted or missing:", file.path);
+    const verifyDublicate = await Banner.findOne({ title });
+    if (verifyDublicate) {
+      // Clean up uploaded files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          try {
+            await fs.unlink(file.path);
+          } catch (err) {
+            console.warn("File already deleted or missing:", file.path);
+          }
+        }
       }
+
+      return res
+        .status(400)
+        .json({ message: "Same title named banner already exists" });
     }
-  }
-
-  return res.status(400).json({ message: "Same title named banner already exists" });
-}
-
 
     const imageUrls = await Promise.all(
       req.files.map(async (file) => {
@@ -312,7 +314,10 @@ if (verifyDublicate) {
       active = true;
     } else if (active) {
       // If requested to be active, deactivate others
-      await Banner.updateMany({ isActive: true }, { $set: { isActive: false } });
+      await Banner.updateMany(
+        { isActive: true },
+        { $set: { isActive: false } }
+      );
     }
 
     const newBanner = new Banner({
@@ -467,7 +472,8 @@ routes.deleteBanner = async (req, res) => {
     const totalBanners = await Banner.countDocuments();
     if (totalBanners <= 1) {
       return res.status(400).json({
-        message: "At least one banner set must remain. Cannot delete the last one.",
+        message:
+          "At least one banner set must remain. Cannot delete the last one.",
       });
     }
 
@@ -535,11 +541,18 @@ routes.deleteBanner = async (req, res) => {
   }
 };
 
-
 // Create a new category
 routes.createCategory = async (req, res) => {
   try {
-    const { name, description, parentCategory, eventDate, repeatFrequency, tableColumns, tableData } = req.body;
+    const {
+      name,
+      description,
+      parentCategory,
+      eventDate,
+      repeatFrequency,
+      tableColumns,
+      tableData,
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Category name is required" });
@@ -547,7 +560,9 @@ routes.createCategory = async (req, res) => {
 
     const existing = await Category.findOne({ name: name.trim() });
     if (existing) {
-      return res.status(400).json({ message: "Category with this name already exists" });
+      return res
+        .status(400)
+        .json({ message: "Category with this name already exists" });
     }
 
     let parent = null;
@@ -562,7 +577,8 @@ routes.createCategory = async (req, res) => {
 
     if (!isSubcategory && (eventDate || repeatFrequency)) {
       return res.status(400).json({
-        message: "eventDate and repeatFrequency are only allowed for subcategories",
+        message:
+          "eventDate and repeatFrequency are only allowed for subcategories",
       });
     }
 
@@ -573,7 +589,8 @@ routes.createCategory = async (req, res) => {
       !eventDate
     ) {
       return res.status(400).json({
-        message: "eventDate is required when repeatFrequency is set for a subcategory",
+        message:
+          "eventDate is required when repeatFrequency is set for a subcategory",
       });
     }
 
@@ -584,10 +601,12 @@ routes.createCategory = async (req, res) => {
 
     // Validate tableData for subcategory
     if (isSubcategory && parent?.tableColumns?.length > 0) {
-      const missingFields = parent.tableColumns.filter(col => !tableData || !tableData[col]);
+      const missingFields = parent.tableColumns.filter(
+        (col) => !tableData || !tableData[col]
+      );
       if (missingFields.length > 0) {
         return res.status(400).json({
-          message: `Missing fields in tableData: ${missingFields.join(", ")}`
+          message: `Missing fields in tableData: ${missingFields.join(", ")}`,
         });
       }
     }
@@ -597,9 +616,9 @@ routes.createCategory = async (req, res) => {
       description,
       parentCategory: parentCategory || null,
       eventDate: isSubcategory ? eventDate : null,
-      repeatFrequency: isSubcategory ? (repeatFrequency || "none") : "none",
+      repeatFrequency: isSubcategory ? repeatFrequency || "none" : "none",
       tableColumns: !isSubcategory ? tableColumns : [],
-      tableData: isSubcategory ? tableData : {}
+      tableData: isSubcategory ? tableData : {},
     });
 
     await newCategory.save();
@@ -614,8 +633,6 @@ routes.createCategory = async (req, res) => {
   }
 };
 
-
-
 // Update Category (name, description, isActive)
 routes.updateCategory = async (req, res) => {
   try {
@@ -628,7 +645,7 @@ routes.updateCategory = async (req, res) => {
       eventDate,
       repeatFrequency,
       tableColumns,
-      tableData
+      tableData,
     } = req.body;
 
     const category = await Category.findById(id);
@@ -644,7 +661,7 @@ routes.updateCategory = async (req, res) => {
       });
       if (duplicate) {
         return res.status(409).json({
-          message: "Another category with this name already exists."
+          message: "Another category with this name already exists.",
         });
       }
       category.name = name.trim();
@@ -697,10 +714,13 @@ routes.updateCategory = async (req, res) => {
     if (isSubcategory) {
       if (repeatFrequency !== undefined) {
         if (
-          !["none", "monthly", "quarterly", "half-yearly", "yearly"].includes(repeatFrequency)
+          !["none", "monthly", "quarterly", "half-yearly", "yearly"].includes(
+            repeatFrequency
+          )
         ) {
           return res.status(400).json({
-            message: "repeatFrequency must be one of: none, monthly, quarterly, half-yearly, yearly",
+            message:
+              "repeatFrequency must be one of: none, monthly, quarterly, half-yearly, yearly",
           });
         }
 
@@ -719,13 +739,16 @@ routes.updateCategory = async (req, res) => {
       }
 
       // Handle tableData
-      const finalParent = parent || await Category.findById(category.parentCategory);
+      const finalParent =
+        parent || (await Category.findById(category.parentCategory));
 
       if (finalParent?.tableColumns?.length > 0 && tableData !== undefined) {
-        const missingFields = finalParent.tableColumns.filter(col => !tableData[col]);
+        const missingFields = finalParent.tableColumns.filter(
+          (col) => !tableData[col]
+        );
         if (missingFields.length > 0) {
           return res.status(400).json({
-            message: `Missing fields in tableData: ${missingFields.join(", ")}`
+            message: `Missing fields in tableData: ${missingFields.join(", ")}`,
           });
         }
         category.tableData = tableData;
@@ -743,8 +766,6 @@ routes.updateCategory = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 routes.categoryById = async (req, res) => {
   try {
@@ -796,7 +817,9 @@ routes.addPosters = async (req, res) => {
     if (!title || !category || !eventDate) {
       return res
         .status(400)
-        .json({ message: "Title, description, eventDate, and category are required" });
+        .json({
+          message: "Title, description, eventDate, and category are required",
+        });
     }
 
     const existingCategory = await Category.findById(category);
@@ -873,11 +896,9 @@ routes.deletePoster = async (req, res) => {
     );
 
     if (!publicIdMatch || !publicIdMatch[1]) {
-      return res
-        .status(500)
-        .json({
-          message: "Could not extract Cloudinary public_id from image URL",
-        });
+      return res.status(500).json({
+        message: "Could not extract Cloudinary public_id from image URL",
+      });
     }
 
     // Your folder name used during upload
@@ -929,17 +950,17 @@ routes.postersForBranding = async (req, res) => {
 
     // Upload all images to Cloudinary
     const imageUrls = await Promise.all(
-  req.files.map(async (file) => {
-    const result = await uploadToCloudinary(file.path, "Branding-Posters");
+      req.files.map(async (file) => {
+        const result = await uploadToCloudinary(file.path, "Branding-Posters");
 
-    // Safely delete local file after upload
-    if (fsSync.existsSync(file.path)) {
-      await fs.unlink(file.path);
-    }
+        // Safely delete local file after upload
+        if (fsSync.existsSync(file.path)) {
+          await fs.unlink(file.path);
+        }
 
-    return result.secure_url;
-  })
-);
+        return result.secure_url;
+      })
+    );
 
     if (isActive === "true" || isActive === true) {
       await BrandingPoster.updateMany(
@@ -1048,7 +1069,8 @@ routes.deleteBrandingPoster = async (req, res) => {
     const totalPosters = await BrandingPoster.countDocuments();
     if (totalPosters <= 1) {
       return res.status(400).json({
-        message: "At least one branding poster must remain. Cannot delete the last one.",
+        message:
+          "At least one branding poster must remain. Cannot delete the last one.",
       });
     }
 
@@ -1097,7 +1119,9 @@ routes.deleteBrandingPoster = async (req, res) => {
 
     // If the deleted poster was active, activate another one
     if (wasActive) {
-      const remainingPosters = await BrandingPoster.find().sort({ createdAt: -1 });
+      const remainingPosters = await BrandingPoster.find().sort({
+        createdAt: -1,
+      });
       if (remainingPosters.length > 0) {
         await BrandingPoster.findByIdAndUpdate(remainingPosters[0]._id, {
           isActive: true,
@@ -1125,7 +1149,7 @@ routes.createPlan = async (req, res) => {
       categories,
       taxType,
       taxPercentage,
-      features
+      features,
     } = req.body;
 
     if (
@@ -1135,7 +1159,21 @@ routes.createPlan = async (req, res) => {
       !Array.isArray(categories) ||
       categories.length === 0
     ) {
-      return res.status(400).json({ message: "All required fields are missing" });
+      return res
+        .status(400)
+        .json({ message: "All required fields are missing" });
+    }
+
+    if (billingOptions.monthly < 0 || billingOptions.yearly < 0) {
+      return res
+        .status(400)
+        .json({ message: "Billing options must be non-negative." });
+    }
+
+    if (taxPercentage < 0) {
+      return res
+        .status(400)
+        .json({ message: "Tax percentage must be non-negative." });
     }
 
     if (
@@ -1150,7 +1188,9 @@ routes.createPlan = async (req, res) => {
     // Check for duplicate name with active plan
     const nameExists = await Plan.findOne({ name, isActive: true });
     if (nameExists) {
-      return res.status(400).json({ message: "An active plan with the same name already exists." });
+      return res
+        .status(400)
+        .json({ message: "An active plan with the same name already exists." });
     }
 
     // Check for duplicate categories with active plans
@@ -1161,12 +1201,18 @@ routes.createPlan = async (req, res) => {
       const existingSorted = [...plan.categories.map(String)].sort();
       return (
         existingSorted.length === sortedCategories.length &&
-        existingSorted.every((catId, idx) => catId === String(sortedCategories[idx]))
+        existingSorted.every(
+          (catId, idx) => catId === String(sortedCategories[idx])
+        )
       );
     });
 
     if (duplicatePlan) {
-      return res.status(400).json({ message: "An active plan with the same categories already exists." });
+      return res
+        .status(400)
+        .json({
+          message: "An active plan with the same categories already exists.",
+        });
     }
 
     // Prepare features
@@ -1199,7 +1245,6 @@ routes.createPlan = async (req, res) => {
   }
 };
 
-
 routes.allPlans = async (req, res) => {
   try {
     const plans = await Plan.find({ isActive: true }) // Only active plans
@@ -1215,7 +1260,6 @@ routes.allPlans = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 routes.planById = async (req, res) => {
   try {
@@ -1253,7 +1297,7 @@ routes.updatePlan = async (req, res) => {
       isActive,
       taxType,
       taxPercentage,
-      features
+      features,
     } = req.body;
 
     if (!planId) {
@@ -1267,8 +1311,10 @@ routes.updatePlan = async (req, res) => {
 
     // Update fields
     if (name !== undefined) plan.name = name;
-    if (billingOptions?.monthly !== undefined) plan.billingOptions.monthly = billingOptions.monthly;
-    if (billingOptions?.yearly !== undefined) plan.billingOptions.yearly = billingOptions.yearly;
+    if (billingOptions?.monthly !== undefined)
+      plan.billingOptions.monthly = billingOptions.monthly;
+    if (billingOptions?.yearly !== undefined)
+      plan.billingOptions.yearly = billingOptions.yearly;
     if (categories !== undefined) plan.categories = categories;
     if (isActive !== undefined) plan.isActive = isActive;
 
@@ -1282,16 +1328,18 @@ routes.updatePlan = async (req, res) => {
     if (taxPercentage !== undefined) {
       const percentage = Number(taxPercentage);
       if (isNaN(percentage)) {
-        return res.status(400).json({ message: "Tax percentage must be a number" });
+        return res
+          .status(400)
+          .json({ message: "Tax percentage must be a number" });
       }
       plan.taxPercentage = percentage;
     }
 
     // ✅ Features update
     if (features !== undefined && Array.isArray(features)) {
-      plan.features = features.map(f => ({
+      plan.features = features.map((f) => ({
         label: f.label,
-        status: !!f.status
+        status: !!f.status,
       }));
     }
 
@@ -1307,7 +1355,6 @@ routes.updatePlan = async (req, res) => {
   }
 };
 
-
 routes.deletePlan = async (req, res) => {
   const { planId } = req.params;
 
@@ -1316,7 +1363,6 @@ routes.deletePlan = async (req, res) => {
 
   res.status(200).json({ message: "Plan marked as inactive" });
 };
-
 
 routes.allTestimonial = async (req, res) => {
   try {
@@ -1333,8 +1379,8 @@ routes.allTestimonial = async (req, res) => {
         select: "profilePhoto firstName lastName designation email",
         populate: {
           path: "designation",
-          select: "name"
-        }
+          select: "name",
+        },
       });
 
     const total = await Testimonial.countDocuments();
@@ -1356,10 +1402,11 @@ routes.allTestimonial = async (req, res) => {
   }
 };
 
-//View all payment 
+//View all payment
 routes.allPayment = async (req, res) => {
   try {
-    if (req.user.role !== "admin") return res.status(403).json({ message: "Unauthorized" });
+    if (req.user.role !== "admin")
+      return res.status(403).json({ message: "Unauthorized" });
 
     const payments = await PaymentOrder.find()
       .populate("user", "firstName lastName email")
@@ -1371,12 +1418,13 @@ routes.allPayment = async (req, res) => {
     console.error("Admin Payments Error:", err);
     res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 //View all Purchase
 routes.allPurchase = async (req, res) => {
   try {
-    if (req.user.role !== "admin") return res.status(403).json({ message: "Unauthorized" });
+    if (req.user.role !== "admin")
+      return res.status(403).json({ message: "Unauthorized" });
 
     const purchases = await PlanPurchase.find()
       .populate("user", "firstName lastName email")
@@ -1418,17 +1466,36 @@ routes.addServices = async (req, res) => {
 
     const serviceCount = await Service.countDocuments();
     if (serviceCount >= 3) {
-      return res.status(400).json({ message: "Only 3 services are allowed. Please delete an existing one to add a new service." });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Only 3 services are allowed. Please delete an existing one to add a new service.",
+        });
+    }
+
+    // Check for existing service with same title
+    const existingTitle = await Service.findOne({ title });
+    if (existingTitle) {
+      return res
+        .status(400)
+        .json({ message: `A service with title "${title}" already exists.` });
     }
 
     // Check for existing service with same position
     const existing = await Service.findOne({ position });
     if (existing) {
-      return res.status(400).json({ message: `A service with position "${position}" already exists.` });
+      return res
+        .status(400)
+        .json({
+          message: `A service with position "${position}" already exists.`,
+        });
     }
 
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "At least one image is required" });
+      return res
+        .status(400)
+        .json({ message: "At least one image is required" });
     }
 
     // Upload all files to Cloudinary
@@ -1442,7 +1509,9 @@ routes.addServices = async (req, res) => {
     }
 
     if (imageUrls.length < 3) {
-      return res.status(400).json({ message: "At least 3 images are required." });
+      return res
+        .status(400)
+        .json({ message: "At least 3 images are required." });
     }
 
     // Create and save the service
@@ -1455,7 +1524,9 @@ routes.addServices = async (req, res) => {
 
     await newService.save();
 
-    return res.status(201).json({ message: "Service added successfully", service: newService });
+    return res
+      .status(201)
+      .json({ message: "Service added successfully", service: newService });
   } catch (error) {
     console.error("Error adding services:", error);
     return res.status(500).json({ message: "Server error" });
@@ -1478,7 +1549,7 @@ routes.updateService = async (req, res) => {
       const positionTaken = await Service.findOne({ position });
       if (positionTaken) {
         return res.status(400).json({
-          message: `Position "${position}" is already taken by another service`
+          message: `Position "${position}" is already taken by another service`,
         });
       }
     }
@@ -1488,7 +1559,7 @@ routes.updateService = async (req, res) => {
       const titleTaken = await Service.findOne({ title });
       if (titleTaken) {
         return res.status(400).json({
-          message: `Title "${title}" is already taken by another service`
+          message: `Title "${title}" is already taken by another service`,
         });
       }
     }
@@ -1500,7 +1571,7 @@ routes.updateService = async (req, res) => {
         try {
           parsedImagesToRemove = JSON.parse(imagesToRemove);
         } catch (err) {
-          parsedImagesToRemove = imagesToRemove.split(',').map(s => s.trim());
+          parsedImagesToRemove = imagesToRemove.split(",").map((s) => s.trim());
         }
       } else if (Array.isArray(imagesToRemove)) {
         parsedImagesToRemove = imagesToRemove;
@@ -1514,13 +1585,14 @@ routes.updateService = async (req, res) => {
 
       if (updatedImageSet.length - parsedImagesToRemove.length < 3) {
         return res.status(400).json({
-          message: "A service must have at least 3 images. Upload new images before removing these."
+          message:
+            "A service must have at least 3 images. Upload new images before removing these.",
         });
       }
 
       for (const imageUrl of parsedImagesToRemove) {
         try {
-          const publicId = imageUrl.split('/').pop().split('.')[0];
+          const publicId = imageUrl.split("/").pop().split(".")[0];
           const fullPublicId = `Study-Cafe/services/${publicId}`;
           await cloudinary.v2.uploader.destroy(fullPublicId);
         } catch (error) {
@@ -1528,7 +1600,9 @@ routes.updateService = async (req, res) => {
         }
       }
 
-      updatedImageSet = updatedImageSet.filter(img => !parsedImagesToRemove.includes(img));
+      updatedImageSet = updatedImageSet.filter(
+        (img) => !parsedImagesToRemove.includes(img)
+      );
       console.log("Updated imageSet after removal:", updatedImageSet);
     }
 
@@ -1546,14 +1620,18 @@ routes.updateService = async (req, res) => {
           // Clean up uploaded images if error occurs
           for (const url of newImageUrls) {
             try {
-              const publicId = url.split('/').pop().split('.')[0];
-              await cloudinary.v2.uploader.destroy(`Study-Cafe/services/${publicId}`);
+              const publicId = url.split("/").pop().split(".")[0];
+              await cloudinary.v2.uploader.destroy(
+                `Study-Cafe/services/${publicId}`
+              );
             } catch (cleanupError) {
               console.error("Error cleaning up failed upload:", cleanupError);
             }
           }
 
-          return res.status(500).json({ message: "Error uploading new images" });
+          return res
+            .status(500)
+            .json({ message: "Error uploading new images" });
         }
       }
 
@@ -1564,7 +1642,7 @@ routes.updateService = async (req, res) => {
     // Final image set check
     if (updatedImageSet.length < 3) {
       return res.status(400).json({
-        message: "A service must have at least 3 images"
+        message: "A service must have at least 3 images",
       });
     }
 
@@ -1578,15 +1656,13 @@ routes.updateService = async (req, res) => {
 
     return res.status(200).json({
       message: "Service updated successfully",
-      service: existingService
+      service: existingService,
     });
-
   } catch (error) {
     console.error("Error updating service:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 
 routes.getAllService = async (req, res) => {
   try {
@@ -1633,17 +1709,22 @@ routes.deleteService = async (req, res) => {
     }
 
     // 2. Delete all images from Cloudinary
-    const deleteImagePromises = serviceToDelete.imageSet.map(async (imageUrl) => {
-      try {
-        // Extract public_id from URL (last part without extension)
-        const publicId = imageUrl.split('/').pop().split('.')[0];
-        const fullPublicId = `Study-Cafe/services/${publicId}`;
-        await cloudinary.v2.uploader.destroy(fullPublicId);
-      } catch (error) {
-        console.error(`Error deleting image ${imageUrl} from Cloudinary:`, error);
-        // Continue even if one image fails to delete
+    const deleteImagePromises = serviceToDelete.imageSet.map(
+      async (imageUrl) => {
+        try {
+          // Extract public_id from URL (last part without extension)
+          const publicId = imageUrl.split("/").pop().split(".")[0];
+          const fullPublicId = `Study-Cafe/services/${publicId}`;
+          await cloudinary.v2.uploader.destroy(fullPublicId);
+        } catch (error) {
+          console.error(
+            `Error deleting image ${imageUrl} from Cloudinary:`,
+            error
+          );
+          // Continue even if one image fails to delete
+        }
       }
-    });
+    );
 
     // Wait for all image deletions to complete
     await Promise.all(deleteImagePromises);
@@ -1651,15 +1732,14 @@ routes.deleteService = async (req, res) => {
     // 3. Delete the service document from MongoDB
     await Service.findByIdAndDelete(id);
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: "Service deleted successfully",
       deletedService: {
         id: serviceToDelete._id,
         title: serviceToDelete.title,
-        position: serviceToDelete.position
-      }
+        position: serviceToDelete.position,
+      },
     });
-
   } catch (error) {
     console.error("Error deleting service:", error);
     return res.status(500).json({ message: "Server error" });

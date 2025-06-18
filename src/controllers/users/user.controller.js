@@ -480,11 +480,11 @@ routes.updateUserProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Handle profile photo update
+    // ✅ Handle profile photo update
     if (req.file) {
       const profilePhoto = req.file;
 
-      // ✅ Delete existing photo from Cloudinary if exists
+      // Delete existing photo from Cloudinary if it exists
       if (user.profilePhoto) {
         const urlParts = user.profilePhoto.split("/");
         const fileName = urlParts[urlParts.length - 1].split(".")[0];
@@ -494,28 +494,44 @@ routes.updateUserProfile = async (req, res) => {
         await cloudinary.v2.uploader.destroy(publicId);
       }
 
-      // ✅ Upload new profile photo
+      // Upload new profile photo
       const uploaded = await uploadToCloudinary(profilePhoto.path);
       fs.unlinkSync(profilePhoto.path); // delete local file
 
       user.profilePhoto = uploaded.secure_url;
     }
 
+    // ✅ Validate and update phone number
+    if (phone) {
+      const phoneRegex = /^[6-9]\d{9}$/; // Validates 10-digit Indian mobile numbers
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ message: "Invalid phone number format" });
+      }
+
+      // Ensure phone number is unique (not already used by another user)
+      const existingUser = await User.findOne({ phone });
+      if (existingUser && existingUser._id.toString() !== userId.toString()) {
+        return res.status(400).json({ message: "Phone number already in use" });
+      }
+
+      user.phone = phone;
+    }
+
     // ✅ Update other fields
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
-    if (phone) user.phone = phone;
     if (city) user.city = city;
-    if (designation) user.designation = designation
+    if (designation) user.designation = designation;
 
     await user.save();
 
     res.status(200).json({ message: "Profile updated successfully", user });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal Server error" });
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 routes.getUserProfile = async (req, res) => {
   try {
