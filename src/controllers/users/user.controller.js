@@ -591,7 +591,8 @@ routes.getBannerSet = async (req, res) => {
 
 routes.getAllCategory = async (req, res) => {
   try {
-    const today = new Date();
+    const today = new Date()
+    today.setHours(23, 59, 59, 999);;
 
     // STEP 1: Auto-update eventDates
     const updatableCategories = await Category.find({
@@ -708,23 +709,24 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     const { parentId } = req.params;
     const { dateFilter } = req.query;
 
-    // Step 1: Find and validate parent
+    // Step 1: Validate parent category
     const parent = await Category.findById(parentId);
     if (!parent) {
       return res.status(404).json({ message: "Parent category not found" });
     }
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Step 2: Define end of today
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
 
-    // Step 2: Find subcategories of this parent
+    // Step 3: Fetch subcategories
     const subcategories = await Category.find({ parentCategory: parentId });
 
-    // Step 3: Auto-update eventDates for eligible subcategories
+    // Step 4: Auto-update outdated eventDates
     for (let sub of subcategories) {
       const isOutdated =
         sub.eventDate &&
-        new Date(sub.eventDate) < todayStart &&
+        new Date(sub.eventDate) < todayEnd &&
         ["monthly", "quarterly", "half-yearly", "yearly"].includes(sub.repeatFrequency);
 
       if (isOutdated) {
@@ -745,7 +747,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
         }
 
         let updatedDate = new Date(sub.eventDate);
-        while (updatedDate < todayStart) {
+        while (updatedDate < todayEnd) {
           updatedDate.setMonth(updatedDate.getMonth() + monthsToAdd);
         }
 
@@ -754,13 +756,12 @@ routes.getSubcategoriesByParentId = async (req, res) => {
       }
     }
 
-    // Step 4: Re-fetch updated subcategories
+    // Step 5: Fetch updated subcategories sorted by eventDate (ascending)
     let filteredSubcategories = await Category.find({ parentCategory: parentId })
-  .sort({ eventDate: 1 })
-  .lean();
+      .sort({ eventDate: 1 })
+      .lean();
 
-
-    // Step 5: Apply date filter
+    // Step 6: Apply optional dateFilter
     if (dateFilter) {
       const now = new Date();
       const start = new Date();
@@ -825,7 +826,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
       });
     }
 
-    // Step 6: Format and respond
+    // Step 7: Format response
     const formatted = filteredSubcategories.map(sub => ({
       _id: sub._id,
       name: sub.name,
@@ -852,6 +853,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
