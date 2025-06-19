@@ -30,6 +30,14 @@ routes.registerAdmin = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    // Password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)"
+      });
+    }
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -578,7 +586,7 @@ routes.createCategory = async (req, res) => {
     if (!isSubcategory && (eventDate || repeatFrequency)) {
       return res.status(400).json({
         message:
-          "eventDate and repeatFrequency are only allowed for subcategories",
+          "Event Date and repeatFrequency are only allowed for subcategories",
       });
     }
 
@@ -590,13 +598,13 @@ routes.createCategory = async (req, res) => {
     ) {
       return res.status(400).json({
         message:
-          "eventDate is required when repeatFrequency is set for a subcategory",
+          "Event Date is required when Repeat Frequency is set for a subcategory",
       });
     }
 
     // Validate tableColumns for parent
     if (!isSubcategory && tableColumns && !Array.isArray(tableColumns)) {
-      return res.status(400).json({ message: "tableColumns must be an array" });
+      return res.status(400).json({ message: "Table columns must be an array" });
     }
 
     // Validate tableData for subcategory
@@ -700,7 +708,7 @@ routes.updateCategory = async (req, res) => {
       if (tableColumns !== undefined) {
         if (!Array.isArray(tableColumns)) {
           return res.status(400).json({
-            message: "tableColumns must be an array for parent categories",
+            message: "Table Columns must be an array for parent categories",
           });
         }
         category.tableColumns = tableColumns;
@@ -720,14 +728,14 @@ routes.updateCategory = async (req, res) => {
         ) {
           return res.status(400).json({
             message:
-              "repeatFrequency must be one of: none, monthly, quarterly, half-yearly, yearly",
+              "Repeat Frequency must be one of: none, monthly, quarterly, half-yearly, yearly",
           });
         }
 
         const finalEventDate = eventDate || category.eventDate;
         if (repeatFrequency !== "none" && !finalEventDate) {
           return res.status(400).json({
-            message: "eventDate is required when repeatFrequency is set",
+            message: "Event Date is required when repeatFrequency is set",
           });
         }
 

@@ -32,7 +32,16 @@ routes.registerUser = async (req, res) => {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    // ✅ Phone format validation
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // Phone format validation
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
@@ -41,7 +50,16 @@ routes.registerUser = async (req, res) => {
       });
     }
 
-    // ✅ Duplicate email or phone check
+    // Strong password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters with at least one uppercase, one lowercase, one number, and one special character (@$!%*?&)",
+      });
+    }
+
+    // Duplicate email or phone check
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
       return res.status(409).json({ success: false, message: "Email or Phone already exists" });
@@ -50,7 +68,7 @@ routes.registerUser = async (req, res) => {
     // Create and store OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12); // Increased salt rounds to 12
 
     // Temporarily save user data in memory or cache
     pendingUsers.set(email, {
@@ -66,20 +84,24 @@ routes.registerUser = async (req, res) => {
       companyGST,
       otp,
       otpExpires,
+      attempts: 0, // Track OTP attempts
+      createdAt: Date.now(), // Track when record was created
     });
 
+    // Send OTP (consider rate limiting in production)
     await sendOTP(email, otp);
 
     return res.status(200).json({
       success: true,
       message: "OTP sent. Please verify to complete registration.",
+      // Don't send OTP in response in production
     });
   } catch (error) {
     console.error("Registration Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to register user",
-      error: error.message,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
