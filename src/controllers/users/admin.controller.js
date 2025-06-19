@@ -646,9 +646,9 @@ routes.getTableColumnsByParentId = async (req, res) => {
   try {
     const { parentId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(parentId)) {
-      return res.status(400).json({ message: "Invalid parent category ID" });
-    }
+    // if (!mongoose.Types.ObjectId.isValid(parentId)) {
+    //   return res.status(400).json({ message: "Invalid parent category ID" });
+    // }
 
     const parentCategory = await Category.findById(parentId).select("tableColumns name");
 
