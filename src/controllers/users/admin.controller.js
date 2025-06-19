@@ -742,7 +742,34 @@ routes.updateCategory = async (req, res) => {
             message: "Table Columns must be an array for parent categories",
           });
         }
+
+        const oldColumns = category.tableColumns || [];
+        const removedColumns = oldColumns.filter(
+          (col) => !tableColumns.includes(col)
+        );
+
         category.tableColumns = tableColumns;
+
+        // Remove deleted columns from subcategories' tableData
+        if (removedColumns.length > 0) {
+          const subcategories = await Category.find({
+            parentCategory: category._id,
+          });
+
+          for (const sub of subcategories) {
+            let changed = false;
+            removedColumns.forEach((col) => {
+              if (sub.tableData?.has(col)) {
+                sub.tableData.delete(col);
+                changed = true;
+              }
+            });
+
+            if (changed) {
+              await sub.save();
+            }
+          }
+        }
       }
 
       // If converting from subcategory to parent, clear tableData
@@ -805,6 +832,8 @@ routes.updateCategory = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 routes.categoryById = async (req, res) => {
   try {
