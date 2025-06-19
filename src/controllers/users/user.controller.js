@@ -755,7 +755,10 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     }
 
     // Step 4: Re-fetch updated subcategories
-    let filteredSubcategories = await Category.find({ parentCategory: parentId }).lean();
+    let filteredSubcategories = await Category.find({ parentCategory: parentId })
+  .sort({ eventDate: 1 })
+  .lean();
+
 
     // Step 5: Apply date filter
     if (dateFilter) {
