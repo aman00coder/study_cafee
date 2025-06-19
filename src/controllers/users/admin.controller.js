@@ -641,6 +641,37 @@ routes.createCategory = async (req, res) => {
   }
 };
 
+//Get table column from parent category
+routes.getTableColumnsByParentId = async (req, res) => {
+  try {
+    const { parentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(parentId)) {
+      return res.status(400).json({ message: "Invalid parent category ID" });
+    }
+
+    const parentCategory = await Category.findById(parentId).select("tableColumns name");
+
+    if (!parentCategory) {
+      return res.status(404).json({ message: "Parent category not found" });
+    }
+
+    if (!parentCategory.tableColumns || parentCategory.tableColumns.length === 0) {
+      return res.status(400).json({ message: "Parent category has no table columns defined" });
+    }
+
+    res.status(200).json({
+      success: true,
+      name: parentCategory.name,
+      tableColumns: parentCategory.tableColumns,
+    });
+  } catch (err) {
+    console.error("Error fetching table columns:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 // Update Category (name, description, isActive)
 routes.updateCategory = async (req, res) => {
   try {

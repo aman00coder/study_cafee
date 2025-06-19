@@ -30,6 +30,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
 
       //Category Routes
       .post("/createCategory", authMiddleware(["admin"]), adminController.createCategory)
+      .get("/categoryColumn/:parentId", authMiddleware(["admin"]), adminController.getTableColumnsByParentId)
       .patch("/updateCategory/:id", authMiddleware(["admin"]), adminController.updateCategory)
       .get("/category/:id", authMiddleware(["admin"]), adminController.categoryById)
       .delete("/deleteCategory/:id", authMiddleware(["admin"]), adminController.deleteCategory)
