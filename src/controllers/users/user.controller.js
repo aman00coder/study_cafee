@@ -591,13 +591,15 @@ routes.getBannerSet = async (req, res) => {
 
 routes.getAllCategory = async (req, res) => {
   try {
-    const today = new Date()
-    today.setHours(23, 59, 59, 999);;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of current day
 
     // STEP 1: Auto-update eventDates
     const updatableCategories = await Category.find({
-      eventDate: { $lt: today },
-      repeatFrequency: { $in: ["monthly","quarterly", "half-yearly", "yearly"] },
+      eventDate: { 
+        $lt: new Date(today.getTime() - 24 * 60 * 60 * 1000) // Yesterday midnight
+      },
+      repeatFrequency: { $in: ["monthly", "quarterly", "half-yearly", "yearly"] },
     });
 
     for (let cat of updatableCategories) {
@@ -617,39 +619,38 @@ routes.getAllCategory = async (req, res) => {
           break;
       }
 
-      let newDate = new Date(cat.eventDate);
-      while (newDate < today) {
-        newDate.setMonth(newDate.getMonth() + monthsToAdd);
-      }
+      const originalDate = new Date(cat.eventDate);
+      let newDate = new Date(originalDate);
+      
+      // Move exactly one period ahead (same day next period)
+      newDate.setMonth(newDate.getMonth() + monthsToAdd);
 
+      // Only update if we're past the event date (waited until next day)
       cat.eventDate = newDate;
       await cat.save();
     }
 
-    // Step 1: Fetch all categories and sort subcategories by eventDate (new to old)
+    // Rest of your existing code...
     const categories = await Category.find({}).lean();
 
     if (!categories.length) {
       return res.status(404).json({ message: "No categories found" });
     }
 
-    // Step 2: Sort subcategories (those with a parentCategory) by eventDate descending
     const sortedSubcategories = categories
       .filter((cat) => cat.parentCategory)
       .sort((a, b) => {
         const dateA = a.eventDate ? new Date(a.eventDate).getTime() : 0;
         const dateB = b.eventDate ? new Date(b.eventDate).getTime() : 0;
-        return dateA - dateB; // Ascending
+        return dateA - dateB;
       });
 
-    // Step 3: Create a map of categories by ID
     const categoryMap = {};
     categories.forEach((cat) => {
       cat.subcategories = [];
       categoryMap[cat._id.toString()] = cat;
     });
 
-    // Step 4: Attach sorted subcategories to their respective parent
     sortedSubcategories.forEach((sub) => {
       const parentId = sub.parentCategory.toString();
       if (categoryMap[parentId]) {
@@ -657,7 +658,6 @@ routes.getAllCategory = async (req, res) => {
       }
     });
 
-    // Step 5: Collect top-level categories
     const nestedCategories = categories.filter((cat) => !cat.parentCategory);
 
     res.status(200).json({
@@ -715,44 +715,43 @@ routes.getSubcategoriesByParentId = async (req, res) => {
       return res.status(404).json({ message: "Parent category not found" });
     }
 
-    // Step 2: Define end of today
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Step 2: Define start of today (midnight)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // Step 3: Fetch subcategories
     const subcategories = await Category.find({ parentCategory: parentId });
 
-    // Step 4: Auto-update outdated eventDates
+    // Step 4: Auto-update outdated eventDates (only if event date is before yesterday)
     for (let sub of subcategories) {
-      const isOutdated =
-        sub.eventDate &&
-        new Date(sub.eventDate) < todayEnd &&
-        ["monthly", "quarterly", "half-yearly", "yearly"].includes(sub.repeatFrequency);
+      if (sub.eventDate && ["monthly", "quarterly", "half-yearly", "yearly"].includes(sub.repeatFrequency)) {
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        if (new Date(sub.eventDate) < yesterday) {
+          let monthsToAdd = 0;
+          switch (sub.repeatFrequency) {
+            case "monthly":
+              monthsToAdd = 1;
+              break;
+            case "quarterly":
+              monthsToAdd = 3;
+              break;
+            case "half-yearly":
+              monthsToAdd = 6;
+              break;
+            case "yearly":
+              monthsToAdd = 12;
+              break;
+          }
 
-      if (isOutdated) {
-        let monthsToAdd = 0;
-        switch (sub.repeatFrequency) {
-          case "monthly":
-            monthsToAdd = 1;
-            break;
-          case "quarterly":
-            monthsToAdd = 3;
-            break;
-          case "half-yearly":
-            monthsToAdd = 6;
-            break;
-          case "yearly":
-            monthsToAdd = 12;
-            break;
+          const newDate = new Date(sub.eventDate);
+          newDate.setMonth(newDate.getMonth() + monthsToAdd);
+          
+          // Only update if date has changed
+          if (newDate.getTime() !== sub.eventDate.getTime()) {
+            sub.eventDate = newDate;
+            await sub.save();
+          }
         }
-
-        let updatedDate = new Date(sub.eventDate);
-        while (updatedDate < todayEnd) {
-          updatedDate.setMonth(updatedDate.getMonth() + monthsToAdd);
-        }
-
-        sub.eventDate = updatedDate;
-        await sub.save();
       }
     }
 
@@ -853,8 +852,6 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 
 
