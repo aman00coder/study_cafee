@@ -25,11 +25,30 @@ const pendingUsers = new Map();
 
 routes.registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, designation, email, phone, password, city, companyGST } = req.body;
+    const {
+      firstName,
+      lastName,
+      designation,
+      email,
+      phone,
+      password,
+      city,
+      companyGST,
+    } = req.body;
 
     // Required fields check
-    if (!firstName || !lastName || !designation || !email || !phone || !password || !city) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+    if (
+      !firstName ||
+      !lastName ||
+      !designation ||
+      !email ||
+      !phone ||
+      !password ||
+      !city
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
     }
 
     // Email format validation
@@ -46,23 +65,28 @@ routes.registerUser = async (req, res) => {
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid phone number format. Must be a 10-digit Indian mobile number.",
+        message:
+          "Invalid phone number format. Must be a 10-digit Indian mobile number.",
       });
     }
 
     // Strong password validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 8 characters with at least one uppercase, one lowercase, one number, and one special character (@$!%*?&)",
+        message:
+          "Password must be at least 8 characters with at least one uppercase, one lowercase, one number, and one special character (@$!%*?&)",
       });
     }
 
     // Duplicate email or phone check
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
-      return res.status(409).json({ success: false, message: "Email or Phone already exists" });
+      return res
+        .status(409)
+        .json({ success: false, message: "Email or Phone already exists" });
     }
 
     // Create and store OTP
@@ -101,11 +125,10 @@ routes.registerUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to register user",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
-
 
 // Send OTP (separate endpoint)
 // routes.sendOTP = async (req, res) => {
@@ -179,14 +202,13 @@ routes.verifyOTP = async (req, res) => {
     await newUser.save();
 
     if (pending.companyGST) {
-  const companyProfile = new CompanyProfile({
-    userId: newUser._id,
-    companyGST: pending.companyGST,
-    isFilled: false // Partial entry
-  });
-  await companyProfile.save();
-}
-
+      const companyProfile = new CompanyProfile({
+        userId: newUser._id,
+        companyGST: pending.companyGST,
+        isFilled: false, // Partial entry
+      });
+      await companyProfile.save();
+    }
 
     pendingUsers.delete(email); // Clean up after success
 
@@ -195,13 +217,11 @@ routes.verifyOTP = async (req, res) => {
       .json({ message: "User registered and verified successfully" });
   } catch (error) {
     console.error("OTP Verification Error:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to verify OTP",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to verify OTP",
+      error: error.message,
+    });
   }
 };
 
@@ -319,18 +339,28 @@ routes.allDesignation = async (req, res) => {
 
 routes.addCompany = async (req, res) => {
   try {
-    const { companyName, companyAddress, companyWebsite, companyGST } = req.body;
+    const { companyName, companyAddress, companyWebsite, companyGST } =
+      req.body;
     const userId = req.user?._id;
 
     // Basic validation
-    if (!userId || !companyName || !companyAddress || !companyWebsite || !req.file) {
+    if (
+      !userId ||
+      !companyName ||
+      !companyAddress ||
+      !companyWebsite ||
+      !req.file
+    ) {
       return res.status(400).json({
         message: "All required fields including logo must be provided.",
       });
     }
 
     // Upload logo to Cloudinary
-    const uploadResult = await uploadToCloudinary(req.file.path, "Company-Logos");
+    const uploadResult = await uploadToCloudinary(
+      req.file.path,
+      "Company-Logos"
+    );
     fs.unlinkSync(req.file.path); // Delete local temp file
 
     // Check for existing profile
@@ -338,7 +368,7 @@ routes.addCompany = async (req, res) => {
 
     if (profile) {
       // ✅ Update existing company profile
-      profile.companyName = companyName; 
+      profile.companyName = companyName;
       profile.companyAddress = companyAddress;
       profile.companyWebsite = companyWebsite;
       profile.companyGST = companyGST || profile.companyGST;
@@ -375,7 +405,6 @@ routes.addCompany = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 routes.updateCompany = async (req, res) => {
   try {
@@ -536,7 +565,6 @@ routes.updateUserProfile = async (req, res) => {
   }
 };
 
-
 routes.getUserProfile = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -596,10 +624,12 @@ routes.getAllCategory = async (req, res) => {
 
     // STEP 1: Auto-update eventDates
     const updatableCategories = await Category.find({
-      eventDate: { 
-        $lt: new Date(today.getTime() - 24 * 60 * 60 * 1000) // Yesterday midnight
+      eventDate: {
+        $lt: new Date(today.getTime() - 24 * 60 * 60 * 1000), // Yesterday midnight
       },
-      repeatFrequency: { $in: ["monthly", "quarterly", "half-yearly", "yearly"] },
+      repeatFrequency: {
+        $in: ["monthly", "quarterly", "half-yearly", "yearly"],
+      },
     });
 
     for (let cat of updatableCategories) {
@@ -621,7 +651,7 @@ routes.getAllCategory = async (req, res) => {
 
       const originalDate = new Date(cat.eventDate);
       let newDate = new Date(originalDate);
-      
+
       // Move exactly one period ahead (same day next period)
       newDate.setMonth(newDate.getMonth() + monthsToAdd);
 
@@ -672,37 +702,37 @@ routes.getAllCategory = async (req, res) => {
 
 routes.getParentCategories = async (req, res) => {
   try {
-    const parents = await Category.find({ parentCategory: null }).sort({ name: 1 }).lean();
+    const parents = await Category.find({ parentCategory: null })
+      .sort({ name: 1 })
+      .lean();
 
     // Fetch all subcategories to check which parent has subcategories
     const subcategoryCounts = await Category.aggregate([
       { $match: { parentCategory: { $ne: null } } },
-      { $group: { _id: "$parentCategory", count: { $sum: 1 } } }
+      { $group: { _id: "$parentCategory", count: { $sum: 1 } } },
     ]);
 
     // Convert aggregation result into a map
     const subMap = {};
-    subcategoryCounts.forEach(item => {
+    subcategoryCounts.forEach((item) => {
       subMap[item._id.toString()] = item.count;
     });
 
     // Attach `hasSubcategories` to each parent category
-    const enhancedParents = parents.map(parent => ({
+    const enhancedParents = parents.map((parent) => ({
       ...parent,
-      hasSubcategories: !!subMap[parent._id.toString()]
+      hasSubcategories: !!subMap[parent._id.toString()],
     }));
 
     res.status(200).json({
       message: "Parent categories fetched successfully",
-      categories: enhancedParents
+      categories: enhancedParents,
     });
   } catch (error) {
     console.error("Error fetching parent categories:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 routes.getSubcategoriesByParentId = async (req, res) => {
   try {
@@ -724,7 +754,12 @@ routes.getSubcategoriesByParentId = async (req, res) => {
 
     // Step 4: Auto-update outdated eventDates (only if event date is before yesterday)
     for (let sub of subcategories) {
-      if (sub.eventDate && ["monthly", "quarterly", "half-yearly", "yearly"].includes(sub.repeatFrequency)) {
+      if (
+        sub.eventDate &&
+        ["monthly", "quarterly", "half-yearly", "yearly"].includes(
+          sub.repeatFrequency
+        )
+      ) {
         const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
         if (new Date(sub.eventDate) < yesterday) {
           let monthsToAdd = 0;
@@ -745,7 +780,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
 
           const newDate = new Date(sub.eventDate);
           newDate.setMonth(newDate.getMonth() + monthsToAdd);
-          
+
           // Only update if date has changed
           if (newDate.getTime() !== sub.eventDate.getTime()) {
             sub.eventDate = newDate;
@@ -756,7 +791,9 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     }
 
     // Step 5: Fetch updated subcategories sorted by eventDate (ascending)
-    let filteredSubcategories = await Category.find({ parentCategory: parentId })
+    let filteredSubcategories = await Category.find({
+      parentCategory: parentId,
+    })
       .sort({ eventDate: 1 })
       .lean();
 
@@ -818,7 +855,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
           return res.status(400).json({ message: "Invalid date filter" });
       }
 
-      filteredSubcategories = filteredSubcategories.filter(sub => {
+      filteredSubcategories = filteredSubcategories.filter((sub) => {
         if (!sub.eventDate) return false;
         const eventTime = new Date(sub.eventDate).getTime();
         return eventTime >= start.getTime() && eventTime <= end.getTime();
@@ -826,7 +863,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     }
 
     // Step 7: Format response
-    const formatted = filteredSubcategories.map(sub => ({
+    const formatted = filteredSubcategories.map((sub) => ({
       _id: sub._id,
       name: sub.name,
       description: sub.description,
@@ -853,8 +890,6 @@ routes.getSubcategoriesByParentId = async (req, res) => {
   }
 };
 
-
-
 routes.postersByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
@@ -868,10 +903,14 @@ routes.postersByCategory = async (req, res) => {
       });
     }
 
-    // Base query
+    // Base query (includes today and future only)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
     const query = {
       category: categoryId,
       isActive: true,
+      eventDate: { $gte: now },
     };
 
     // Add date filtering based on eventDate
@@ -1214,7 +1253,8 @@ routes.downloadPoster = async (req, res) => {
     activePlans.forEach((purchase) => {
       if (purchase.plan && Array.isArray(purchase.plan.categories)) {
         purchase.plan.categories.forEach((catId) => {
-          const idStr = typeof catId === "object" ? catId._id.toString() : catId.toString();
+          const idStr =
+            typeof catId === "object" ? catId._id.toString() : catId.toString();
           if (!allowedCategoryIds.includes(idStr)) {
             allowedCategoryIds.push(idStr);
           }
@@ -1249,6 +1289,5 @@ routes.downloadPoster = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export default routes;
