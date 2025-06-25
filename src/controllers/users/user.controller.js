@@ -620,49 +620,72 @@ routes.getBannerSet = async (req, res) => {
 routes.getAllCategory = async (req, res) => {
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of current day
+    today.setUTCHours(0, 0, 0, 0); // Use UTC midnight
 
-    // STEP 1: Auto-update eventDates
     const updatableCategories = await Category.find({
       eventDate: {
-        $lt: new Date(today.getTime() - 24 * 60 * 60 * 1000), // Yesterday midnight
+        $lt: new Date(today.getTime() - 24 * 60 * 60 * 1000), // before yesterday UTC
       },
       repeatFrequency: {
-        $in: ["monthly", "quarterly", "half-yearly", "yearly"],
+        $in: ["monthly", "quarterly", "half-yearly", "yearly", "30thPlus15Days"],
       },
     });
 
     for (let cat of updatableCategories) {
-      let monthsToAdd = 0;
-      switch (cat.repeatFrequency) {
-        case "monthly":
-          monthsToAdd = 1;
-          break;
-        case "quarterly":
-          monthsToAdd = 3;
-          break;
-        case "half-yearly":
-          monthsToAdd = 6;
-          break;
-        case "yearly":
-          monthsToAdd = 12;
-          break;
+      let newDate;
+
+      if (cat.repeatFrequency === "30thPlus15Days") {
+        let current = new Date();
+        let year = current.getUTCFullYear();
+        let month = current.getUTCMonth();
+
+        let thirtieth = new Date(Date.UTC(year, month, 30)); // 30th 00:00 UTC
+        let nextEventDate = new Date(thirtieth);
+        nextEventDate.setUTCDate(nextEventDate.getUTCDate() + 15);
+        nextEventDate.setUTCHours(0, 0, 0, 0);
+
+        if (today > nextEventDate) {
+          // shift to next month
+          month += 1;
+          if (month > 11) {
+            month = 0;
+            year += 1;
+          }
+          let nextThirtieth = new Date(Date.UTC(year, month, 30));
+          nextEventDate = new Date(nextThirtieth);
+          nextEventDate.setUTCDate(nextEventDate.getUTCDate() + 15);
+          nextEventDate.setUTCHours(0, 0, 0, 0);
+        }
+
+        newDate = nextEventDate;
+      } else {
+        let monthsToAdd = 0;
+        switch (cat.repeatFrequency) {
+          case "monthly":
+            monthsToAdd = 1;
+            break;
+          case "quarterly":
+            monthsToAdd = 3;
+            break;
+          case "half-yearly":
+            monthsToAdd = 6;
+            break;
+          case "yearly":
+            monthsToAdd = 12;
+            break;
+        }
+
+        const originalDate = new Date(cat.eventDate);
+        newDate = new Date(originalDate);
+        newDate.setUTCMonth(newDate.getUTCMonth() + monthsToAdd);
+        newDate.setUTCHours(0, 0, 0, 0);
       }
 
-      const originalDate = new Date(cat.eventDate);
-      let newDate = new Date(originalDate);
-
-      // Move exactly one period ahead (same day next period)
-      newDate.setMonth(newDate.getMonth() + monthsToAdd);
-
-      // Only update if we're past the event date (waited until next day)
       cat.eventDate = newDate;
       await cat.save();
     }
 
-    // Rest of your existing code...
     const categories = await Category.find({}).lean();
-
     if (!categories.length) {
       return res.status(404).json({ message: "No categories found" });
     }
@@ -699,6 +722,8 @@ routes.getAllCategory = async (req, res) => {
     res.status(500).json({ message: "Internal Server error" });
   }
 };
+
+
 
 routes.getParentCategories = async (req, res) => {
   try {
@@ -745,47 +770,74 @@ routes.getSubcategoriesByParentId = async (req, res) => {
       return res.status(404).json({ message: "Parent category not found" });
     }
 
-    // Step 2: Define start of today (midnight)
+    // Step 2: Define start of today (UTC midnight)
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
+    const yesterdayUTC = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
     // Step 3: Fetch subcategories
     const subcategories = await Category.find({ parentCategory: parentId });
 
-    // Step 4: Auto-update outdated eventDates (only if event date is before yesterday)
+    // Step 4: Auto-update outdated eventDates
     for (let sub of subcategories) {
       if (
         sub.eventDate &&
-        ["monthly", "quarterly", "half-yearly", "yearly"].includes(
+        ["monthly", "quarterly", "half-yearly", "yearly", "30thPlus15Days"].includes(
           sub.repeatFrequency
         )
       ) {
-        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-        if (new Date(sub.eventDate) < yesterday) {
-          let monthsToAdd = 0;
-          switch (sub.repeatFrequency) {
-            case "monthly":
-              monthsToAdd = 1;
-              break;
-            case "quarterly":
-              monthsToAdd = 3;
-              break;
-            case "half-yearly":
-              monthsToAdd = 6;
-              break;
-            case "yearly":
-              monthsToAdd = 12;
-              break;
+        const currentEvent = new Date(sub.eventDate);
+        if (currentEvent < yesterdayUTC) {
+          let newDate;
+
+          if (sub.repeatFrequency === "30thPlus15Days") {
+            let now = new Date();
+            let year = now.getUTCFullYear();
+            let month = now.getUTCMonth();
+
+            let thirtieth = new Date(Date.UTC(year, month, 30));
+            let fifteenth = new Date(thirtieth);
+            fifteenth.setUTCDate(fifteenth.getUTCDate() + 15);
+            fifteenth.setUTCHours(0, 0, 0, 0);
+
+            if (today > fifteenth) {
+              month += 1;
+              if (month > 11) {
+                month = 0;
+                year += 1;
+              }
+              let nextThirtieth = new Date(Date.UTC(year, month, 30));
+              newDate = new Date(nextThirtieth);
+              newDate.setUTCDate(newDate.getUTCDate() + 15);
+              newDate.setUTCHours(0, 0, 0, 0);
+            } else {
+              newDate = fifteenth;
+            }
+          } else {
+            // Other repeat frequencies
+            let monthsToAdd = 0;
+            switch (sub.repeatFrequency) {
+              case "monthly":
+                monthsToAdd = 1;
+                break;
+              case "quarterly":
+                monthsToAdd = 3;
+                break;
+              case "half-yearly":
+                monthsToAdd = 6;
+                break;
+              case "yearly":
+                monthsToAdd = 12;
+                break;
+            }
+
+            newDate = new Date(currentEvent);
+            newDate.setUTCMonth(newDate.getUTCMonth() + monthsToAdd);
+            newDate.setUTCHours(0, 0, 0, 0);
           }
 
-          const newDate = new Date(sub.eventDate);
-          newDate.setMonth(newDate.getMonth() + monthsToAdd);
-
-          // Only update if date has changed
-          if (newDate.getTime() !== sub.eventDate.getTime()) {
-            sub.eventDate = newDate;
-            await sub.save();
-          }
+          sub.eventDate = newDate;
+          await sub.save();
         }
       }
     }
@@ -818,7 +870,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
 
         case "thisWeek":
           const day = start.getDay(); // 0 (Sun) to 6 (Sat)
-          const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust to Monday
+          const diff = start.getDate() - day + (day === 0 ? -6 : 1);
           start.setDate(diff);
           start.setHours(0, 0, 0, 0);
           end.setDate(start.getDate() + 6);
@@ -827,7 +879,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
 
         case "nextWeek":
           const nextWeekStart = new Date();
-          nextWeekStart.setDate(start.getDate() + (7 - start.getDay() + 1)); // next Monday
+          nextWeekStart.setDate(start.getDate() + (7 - start.getDay() + 1));
           nextWeekStart.setHours(0, 0, 0, 0);
           const nextWeekEnd = new Date(nextWeekStart);
           nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
@@ -840,14 +892,14 @@ routes.getSubcategoriesByParentId = async (req, res) => {
           start.setDate(1);
           start.setHours(0, 0, 0, 0);
           end.setMonth(start.getMonth() + 1);
-          end.setDate(0); // last day of current month
+          end.setDate(0);
           end.setHours(23, 59, 59, 999);
           break;
 
         case "nextMonth":
           start.setMonth(start.getMonth() + 1, 1);
           start.setHours(0, 0, 0, 0);
-          end.setMonth(start.getMonth() + 1, 0); // last day of next month
+          end.setMonth(start.getMonth() + 1, 0);
           end.setHours(23, 59, 59, 999);
           break;
 
@@ -889,6 +941,7 @@ routes.getSubcategoriesByParentId = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 routes.postersByCategory = async (req, res) => {
   try {

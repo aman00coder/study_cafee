@@ -552,7 +552,7 @@ routes.deleteBanner = async (req, res) => {
 // Create a new category
 routes.createCategory = async (req, res) => {
   try {
-    const {
+    let {
       name,
       description,
       parentCategory,
@@ -585,29 +585,35 @@ routes.createCategory = async (req, res) => {
 
     if (!isSubcategory && (eventDate || repeatFrequency)) {
       return res.status(400).json({
-        message:
-          "Event Date and repeatFrequency are only allowed for subcategories",
+        message: "Event Date and repeatFrequency are only allowed for subcategories",
       });
     }
 
-    if (
-      isSubcategory &&
-      repeatFrequency &&
-      repeatFrequency !== "none" &&
-      !eventDate
-    ) {
-      return res.status(400).json({
-        message:
-          "Event Date is required when Repeat Frequency is set for a subcategory",
-      });
+    if (isSubcategory && repeatFrequency && repeatFrequency !== "none") {
+      if (!eventDate && repeatFrequency !== "30thPlus15Days") {
+        return res.status(400).json({
+          message: "Event Date is required when Repeat Frequency is set (except for '30thPlus15Days')",
+        });
+      }
+
+      if (repeatFrequency === "30thPlus15Days" && !eventDate) {
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = now.getUTCMonth();
+
+        const thirtiethUTC = new Date(Date.UTC(year, month, 30)); // 30th 00:00 UTC
+        const fifteenthUTC = new Date(thirtiethUTC);
+        fifteenthUTC.setUTCDate(fifteenthUTC.getUTCDate() + 15);
+        fifteenthUTC.setUTCHours(0, 0, 0, 0); // force midnight UTC
+
+        eventDate = fifteenthUTC;
+      }
     }
 
-    // Validate tableColumns for parent
     if (!isSubcategory && tableColumns && !Array.isArray(tableColumns)) {
       return res.status(400).json({ message: "Table columns must be an array" });
     }
 
-    // Validate tableData for subcategory
     if (isSubcategory && parent?.tableColumns?.length > 0) {
       const missingFields = parent.tableColumns.filter(
         (col) => !tableData || !tableData[col]
@@ -640,6 +646,9 @@ routes.createCategory = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
 
 //Get table column from parent category
 routes.getTableColumnsByParentId = async (req, res) => {
