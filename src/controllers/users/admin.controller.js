@@ -789,13 +789,13 @@ routes.updateCategory = async (req, res) => {
     if (isSubcategory) {
       if (repeatFrequency !== undefined) {
         if (
-          !["none", "monthly", "quarterly", "half-yearly", "yearly"].includes(
+          !["none","30thPlus15Days", "monthly", "quarterly", "half-yearly", "yearly"].includes(
             repeatFrequency
           )
         ) {
           return res.status(400).json({
             message:
-              "Repeat Frequency must be one of: none, monthly, quarterly, half-yearly, yearly",
+              "Repeat Frequency must be one of: none,30thPlus15Days, monthly, quarterly, half-yearly, yearly",
           });
         }
 
