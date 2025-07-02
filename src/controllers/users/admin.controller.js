@@ -596,18 +596,27 @@ routes.createCategory = async (req, res) => {
         });
       }
 
-      if (repeatFrequency === "30thPlus15Days" && !eventDate) {
-        const now = new Date();
-        const year = now.getUTCFullYear();
-        const month = now.getUTCMonth();
+if (
+  repeatFrequency === "30thPlus15Days" &&
+  (!eventDate || eventDate === "null" || eventDate === null || eventDate === "")
+) {
+   const now = new Date(Date.UTC(2025, 7, 18));
+  const utcDay = now.getUTCDate();
+  const utcMonth = now.getUTCMonth();
+  const utcYear = now.getUTCFullYear();
 
-        const thirtiethUTC = new Date(Date.UTC(year, month, 30)); // 30th 00:00 UTC
-        const fifteenthUTC = new Date(thirtiethUTC);
-        fifteenthUTC.setUTCDate(fifteenthUTC.getUTCDate() + 15);
-        fifteenthUTC.setUTCHours(0, 0, 0, 0); // force midnight UTC
+  if (utcDay <= 15) {
+    // First half of the month → return 15th
+    eventDate = new Date(Date.UTC(utcYear, utcMonth, 15));
+  } else {
+    // Second half → return 14th of same month
+    eventDate = new Date(Date.UTC(utcYear, utcMonth, 14));
+  }
 
-        eventDate = fifteenthUTC;
-      }
+  eventDate.setUTCHours(0, 0, 0, 0);
+}
+
+
     }
 
     if (!isSubcategory && tableColumns && !Array.isArray(tableColumns)) {
@@ -799,12 +808,38 @@ routes.updateCategory = async (req, res) => {
           });
         }
 
-        const finalEventDate = eventDate || category.eventDate;
-        if (repeatFrequency !== "none" && !finalEventDate) {
-          return res.status(400).json({
-            message: "Event Date is required when repeatFrequency is set",
-          });
-        }
+        if (repeatFrequency !== "none") {
+  let finalEventDate = eventDate;
+
+  // Apply default date logic for 30thPlus15Days if eventDate is not sent
+  if (
+    repeatFrequency === "30thPlus15Days" &&
+    (eventDate === undefined || eventDate === null || eventDate === "")
+  ) {
+     const now = new Date(Date.UTC(2025, 7, 18));
+    const utcDay = now.getUTCDate();
+    const utcMonth = now.getUTCMonth();
+    const utcYear = now.getUTCFullYear();
+
+    if (utcDay <= 15) {
+      finalEventDate = new Date(Date.UTC(utcYear, utcMonth, 15));
+    } else {
+      finalEventDate = new Date(Date.UTC(utcYear, utcMonth, 14));
+    }
+
+    finalEventDate.setUTCHours(0, 0, 0, 0);
+  }
+
+  if (!finalEventDate) {
+    return res.status(400).json({
+      message: "Event Date is required when repeatFrequency is set",
+    });
+  }
+
+  category.repeatFrequency = repeatFrequency;
+  category.eventDate = finalEventDate;
+}
+
 
         category.repeatFrequency = repeatFrequency;
       }
