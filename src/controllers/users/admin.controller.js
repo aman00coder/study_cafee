@@ -600,7 +600,7 @@ if (
   repeatFrequency === "30thPlus15Days" &&
   (!eventDate || eventDate === "null" || eventDate === null || eventDate === "")
 ) {
-   const now = new Date(Date.UTC(2025, 7, 18));
+    const now = new Date();
   const utcDay = now.getUTCDate();
   const utcMonth = now.getUTCMonth();
   const utcYear = now.getUTCFullYear();
@@ -816,7 +816,7 @@ routes.updateCategory = async (req, res) => {
     repeatFrequency === "30thPlus15Days" &&
     (eventDate === undefined || eventDate === null || eventDate === "")
   ) {
-     const now = new Date(Date.UTC(2025, 7, 18));
+    const now = new Date();
     const utcDay = now.getUTCDate();
     const utcMonth = now.getUTCMonth();
     const utcYear = now.getUTCFullYear();
