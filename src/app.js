@@ -8,7 +8,7 @@ config();
 const app = express();
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5175', 'https://study-cafe-ymuj.onrender.com', 'https://study-cafe-admin.onrender.com', 'https://bannerbuddy.digitalnightowl.agency'],
+  origin: ['http://localhost:5173', 'http://localhost:5175', 'https://study-cafe-ymuj.onrender.com', 'https://study-cafe-admin.onrender.com', 'https://bannerbuddy.digitalnightowl.agency', 'https://bannerbuddy.in'],
   credentials: true
 }));
 
@@ -18,7 +18,7 @@ app.use(morgan("dev"))
 
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
-      const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175', 'https://study-cafe-ymuj.onrender.com', 'https://study-cafe-admin.onrender.com', 'https://bannerbuddy.digitalnightowl.agency'];
+      const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175', 'https://study-cafe-ymuj.onrender.com', 'https://study-cafe-admin.onrender.com', 'https://bannerbuddy.digitalnightowl.agency', 'https://bannerbuddy.in'];
       const origin = req.headers.origin;
       
       if (allowedOrigins.includes(origin)) {
