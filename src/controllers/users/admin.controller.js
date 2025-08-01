@@ -139,28 +139,50 @@ routes.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
-    // Find user with matching OTP (within expiry time)
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    // Password strength check
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long, include uppercase, lowercase, number and special character (@$!%*?&)",
+      });
+    }
+
+    // Find user with matching OTP (and check OTP is not expired)
     const user = await User.findOne({
       email,
       otp,
-      otpExpires: { $gt: Date.now() }, // Check OTP hasn't expired
+      otpExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid/expired OTP" });
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Update password and clear OTP fields
+    // Set new password and clear OTP fields
     user.password = await bcrypt.hash(newPassword, 10);
     user.otp = undefined;
     user.otpExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: "Password updated successfully" });
+    return res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Reset Password Error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 routes.getAllCompanies = async (req, res) => {
   try {
