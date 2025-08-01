@@ -942,6 +942,195 @@ routes.getSubcategoriesByParentId = async (req, res) => {
   }
 };
 
+routes.getSubcategoriesByParentIdforUser = async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    const { dateFilter } = req.query;
+
+    // Step 1: Validate parent category
+    const parent = await Category.findById(parentId);
+    if (!parent) {
+      return res.status(404).json({ message: "Parent category not found" });
+    }
+
+    // Step 2: Define start of today (UTC midnight)
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const yesterdayUTC = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+    // Step 3: Fetch subcategories
+    const subcategories = await Category.find({ parentCategory: parentId });
+
+    // Step 4: Auto-update outdated eventDates
+    for (let sub of subcategories) {
+      if (
+        sub.eventDate &&
+        ["monthly", "quarterly", "half-yearly", "yearly", "30thPlus15Days"].includes(sub.repeatFrequency)
+      ) {
+        const currentEvent = new Date(sub.eventDate);
+        if (currentEvent < yesterdayUTC) {
+          let newDate;
+
+          if (sub.repeatFrequency === "30thPlus15Days") {
+            let now = new Date();
+            let year = now.getUTCFullYear();
+            let month = now.getUTCMonth();
+
+            let thirtieth = new Date(Date.UTC(year, month, 30));
+            let fifteenth = new Date(thirtieth);
+            fifteenth.setUTCDate(fifteenth.getUTCDate() + 15);
+            fifteenth.setUTCHours(0, 0, 0, 0);
+
+            if (today > fifteenth) {
+              month += 1;
+              if (month > 11) {
+                month = 0;
+                year += 1;
+              }
+              let nextThirtieth = new Date(Date.UTC(year, month, 30));
+              newDate = new Date(nextThirtieth);
+              newDate.setUTCDate(newDate.getUTCDate() + 15);
+              newDate.setUTCHours(0, 0, 0, 0);
+            } else {
+              newDate = fifteenth;
+            }
+          } else {
+            // Other repeat frequencies
+            let monthsToAdd = 0;
+            switch (sub.repeatFrequency) {
+              case "monthly":
+                monthsToAdd = 1;
+                break;
+              case "quarterly":
+                monthsToAdd = 3;
+                break;
+              case "half-yearly":
+                monthsToAdd = 6;
+                break;
+              case "yearly":
+                monthsToAdd = 12;
+                break;
+            }
+
+            newDate = new Date(currentEvent);
+            newDate.setUTCMonth(newDate.getUTCMonth() + monthsToAdd);
+            newDate.setUTCHours(0, 0, 0, 0);
+          }
+
+          sub.eventDate = newDate;
+          await sub.save();
+        }
+      }
+    }
+
+    // Step 5: Fetch updated subcategories sorted by eventDate (ascending)
+    let filteredSubcategories = await Category.find({ parentCategory: parentId })
+      .sort({ eventDate: 1 })
+      .lean();
+
+    // Step 6: Apply optional dateFilter
+    if (dateFilter) {
+      const now = new Date();
+      const start = new Date();
+      const end = new Date();
+
+      switch (dateFilter) {
+        case "today":
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextDay":
+          start.setDate(start.getDate() + 1);
+          start.setHours(0, 0, 0, 0);
+          end.setDate(end.getDate() + 1);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "thisWeek":
+          const day = start.getDay(); // 0 (Sun) to 6 (Sat)
+          const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+          start.setDate(diff);
+          start.setHours(0, 0, 0, 0);
+          end.setDate(start.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextWeek":
+          const nextWeekStart = new Date();
+          nextWeekStart.setDate(start.getDate() + (7 - start.getDay() + 1));
+          nextWeekStart.setHours(0, 0, 0, 0);
+          const nextWeekEnd = new Date(nextWeekStart);
+          nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+          nextWeekEnd.setHours(23, 59, 59, 999);
+          start.setTime(nextWeekStart);
+          end.setTime(nextWeekEnd);
+          break;
+
+        case "thisMonth":
+          start.setDate(1);
+          start.setHours(0, 0, 0, 0);
+          end.setMonth(start.getMonth() + 1);
+          end.setDate(0);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        case "nextMonth":
+          start.setMonth(start.getMonth() + 1, 1);
+          start.setHours(0, 0, 0, 0);
+          end.setMonth(start.getMonth() + 1, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+
+        default:
+          return res.status(400).json({ message: "Invalid date filter" });
+      }
+
+      filteredSubcategories = filteredSubcategories.filter((sub) => {
+        if (!sub.eventDate) return false;
+        const eventTime = new Date(sub.eventDate).getTime();
+        return eventTime >= start.getTime() && eventTime <= end.getTime();
+      });
+    } else {
+      // Step 6.5: Exclude outdated eventDates if no dateFilter provided
+      const now = new Date();
+      now.setUTCHours(0, 0, 0, 0);
+
+      filteredSubcategories = filteredSubcategories.filter((sub) => {
+        if (!sub.eventDate) return false;
+        const eventTime = new Date(sub.eventDate).getTime();
+        return eventTime >= now.getTime(); // Include today or future
+      });
+    }
+
+    // Step 7: Format response
+    const formatted = filteredSubcategories.map((sub) => ({
+      _id: sub._id,
+      name: sub.name,
+      description: sub.description,
+      eventDate: sub.eventDate,
+      repeatFrequency: sub.repeatFrequency,
+      tableData:
+        sub.tableData && typeof sub.tableData.entries === "function"
+          ? Object.fromEntries(sub.tableData.entries())
+          : sub.tableData || {},
+    }));
+
+    // Step 8: Return final response
+    res.status(200).json({
+      message: "Subcategories with data fetched successfully",
+      parent: {
+        _id: parent._id,
+        name: parent.name,
+        tableColumns: parent.tableColumns || [],
+      },
+      subcategories: formatted,
+    });
+  } catch (error) {
+    console.error("Error fetching subcategories:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 routes.postersByCategory = async (req, res) => {
   try {

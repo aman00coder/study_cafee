@@ -35,6 +35,7 @@ router.post("/registerUser", userController.registerUser)
       .get("/allCategory", userController.getAllCategory)
       .get("/parentCategory", userController.getParentCategories)
       .get("/subCategory/:parentId", userController.getSubcategoriesByParentId)
+      .get("/subCategoryforUser/:parentId", userController.getSubcategoriesByParentIdforUser)
       
       .get("/postersByCategory/:categoryId", userController.postersByCategory)
       .get("/postersById/:posterId", userController.postersById)
