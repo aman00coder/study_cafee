@@ -80,4 +80,7 @@ router.post("/registerAdmin", adminController.registerAdmin)
       .get("/serviceById/:id", authMiddleware(["admin"]), adminController.getServiceById)
       .delete("/deleteService/:id", authMiddleware(["admin"]), adminController.deleteService)
 
+//************************************* Cricket project mail storage **********************************/
+      .post("/crickDummyMail", authMiddleware(["admin"]), adminController.CrickDummyMail)
+
 export default router;

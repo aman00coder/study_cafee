@@ -12,6 +12,7 @@ import PaymentOrder from "../../models/paymentOrder.model.js";
 import PlanPurchase from "../../models/planPurchase.model.js";
 import CompanyProfile from "../../models/companyProfile.js";
 import Service from "../../models/services.model.js";
+import CrickDummyMail from "../../models/crickDummyMail.model.js";
 import { uploadToCloudinary } from "../../services/cloudinary.js";
 import fs from "fs/promises";
 import fsSync from "fs";
@@ -1877,6 +1878,37 @@ routes.deleteService = async (req, res) => {
   } catch (error) {
     console.error("Error deleting service:", error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+//************************************* Cricket project mail storage **********************************/
+routes.CrickDummyMail = async(req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Simple email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+
+    // Check if email already exists
+    const existing = await CrickDummyMail.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'This email is already submitted.' });
+    }
+
+    // Save new email
+    const newMail = new CrickDummyMail({ email });
+    await newMail.save();
+
+    res.status(201).json({ success: true, message: 'Email submitted successfully!' });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error. Please try again later.' });
   }
 };
 

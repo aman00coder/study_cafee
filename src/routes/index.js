@@ -6,6 +6,9 @@ const router = express.Router()
 
 router.use("/admin", adminRoutes)
       .use("/user", userRoutes)
+      .get("/check", (req,res)=>{
+    res.send("Server Running again!")
+})
 
 
 export default router;     
