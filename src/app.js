@@ -7,7 +7,7 @@ config();
 
 const app = express();
 
-// 🔹 Updated CORS origins (new Netlify URL added)
+// 🔹 Allowed Frontend URLs
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5175',
@@ -19,34 +19,93 @@ const allowedOrigins = [
   'https://jolly-crisp-339143.netlify.app' // ✅ New permission added
 ];
 
+// 🔹 CORS middleware (all requests)
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true
 }));
 
 app.use(express.json());
 app.use(morgan("dev"));
 
-// 🔹 OPTIONS request handler
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-      const origin = req.headers.origin;
-      if (allowedOrigins.includes(origin)) {
-          res.header("Access-Control-Allow-Origin", origin);
-      }
-      res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH");
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      res.header("Access-Control-Allow-Credentials", "true");
-      return res.sendStatus(200);
-  }
-  next();
-});
-
-
+// 🔹 API Routes
 app.use("/api", allRoutes);
 
+// 🔹 Default route
 app.get("/", (req,res)=>{
     res.send("Server Running!");
 });
 
 export default app;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import express from 'express';
+// import cors from 'cors';
+// import { config } from 'dotenv';
+// import morgan from 'morgan';
+// import allRoutes from "./routes/index.js";
+// config();
+
+// const app = express();
+
+// // 🔹 Updated CORS origins (new Netlify URL added)
+// const allowedOrigins = [
+//   'http://localhost:5173',
+//   'http://localhost:5175',
+//   'https://study-cafe-ymuj.onrender.com',
+//   'https://study-cafe-admin.onrender.com',
+//   'https://bannerbuddy.digitalnightowl.agency',
+//   'https://bannerbuddy.in',
+//   'https://sportslivv-chbb.onrender.com',
+//   'https://jolly-crisp-339143.netlify.app' // ✅ New permission added
+// ];
+
+// app.use(cors({
+//   origin: allowedOrigins,
+//   credentials: true
+// }));
+
+// app.use(express.json());
+// app.use(morgan("dev"));
+
+// // 🔹 OPTIONS request handler
+// app.use((req, res, next) => {
+//   if (req.method === 'OPTIONS') {
+//       const origin = req.headers.origin;
+//       if (allowedOrigins.includes(origin)) {
+//           res.header("Access-Control-Allow-Origin", origin);
+//       }
+//       res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH");
+//       res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//       res.header("Access-Control-Allow-Credentials", "true");
+//       return res.sendStatus(200);
+//   }
+//   next();
+// });
+
+
+// app.use("/api", allRoutes);
+
+// app.get("/", (req,res)=>{
+//     res.send("Server Running!");
+// });
+
+// export default app;
