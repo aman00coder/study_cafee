@@ -42,6 +42,7 @@ app.use((req, res, next) => {
   next();
 });
 
+
 app.use("/api", allRoutes);
 
 app.get("/", (req,res)=>{
