@@ -61,6 +61,8 @@ routes.registerAdmin = async (req, res) => {
   }
 };
 
+
+
 routes.loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
