@@ -15,13 +15,14 @@ const allowedOrigins = [
   'https://study-cafe-admin.onrender.com',
   'https://bannerbuddy.digitalnightowl.agency',
   'https://bannerbuddy.in',
+  'https://admin.bannerbuddy.in',   // ✅ ADMIN FRONTEND ADDED
   'https://sportslivv-chbb.onrender.com',
-  'https://jolly-crisp-339143.netlify.app' // ✅ New permission added
+  'https://jolly-crisp-339143.netlify.app'
 ];
 
 // 🔹 CORS middleware (all requests)
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -38,13 +39,8 @@ app.use(morgan("dev"));
 app.use("/api", allRoutes);
 
 // 🔹 Default route
-app.get("/", (req,res)=>{
-    res.send("Server Running!");
+app.get("/", (req, res) => {
+  res.send("Server Running!");
 });
 
 export default app;
-
-
-
-
-
